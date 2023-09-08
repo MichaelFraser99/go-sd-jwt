@@ -13,7 +13,11 @@ For more information on SD-JWTs, see the [Selective Disclosure JWTs RFC](https:/
 go get github.com/MichaelFraser99/go-sd-jwt
 ```
 
-
+## Algorithms Supported
+Currently, the module will support the following jwt signing algorithms:
+- ES256
+- ES384
+- ES512
 
 ## Functions
 ### Pointer
@@ -77,14 +81,14 @@ type SdJwt struct {
 // Has unexported fields.
 }
 ```
-SdJwt this object represents a valid SD-JWT. Created using the New function
+SdJwt this object represents a valid SD-JWT. Created using the FromToken function
 which performs the required validation. Helper methods are provided for
 retrieving the contents
 
 ```go
-func New(token string) (*SdJwt, error)
+func FromToken(token string) (*SdJwt, error)
 ```
-New Creates a new SD-JWT from a JWS or JWT format token. The token is
+FromToken Creates a new SD-JWT from a JWS or JWT format token. The token is
 validated inline with the SD-JWT specification. If the token is valid,
 a new SdJwt object is returned.
 

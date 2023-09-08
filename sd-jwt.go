@@ -4,22 +4,28 @@
 package go_sd_jwt
 
 import (
+	"crypto"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/MichaelFraser99/go-sd-jwt/internal/jwt"
 	"hash"
 	"reflect"
 	"strings"
 )
 
-// SdJwt this object represents a valid SD-JWT. Created using the New function which performs the required validation.
+// SdJwt this object represents a valid SD-JWT. Created using the FromToken function which performs the required validation.
 // Helper methods are provided for retrieving the contents
 type SdJwt struct {
 	token       string
 	head        map[string]any
 	body        map[string]any
 	signature   string
+	publicKey   string
+	kbJwt       *string
 	disclosures []Disclosure
 }
 
@@ -45,28 +51,38 @@ type arrayDisclosure struct {
 	Digest *string `json:"..."`
 }
 
-// New
+// FromToken
 // Creates a new SD-JWT from a JWS or JWT format token.
 // The token is validated inline with the SD-JWT specification.
 // If the token is valid, a new SdJwt object is returned.
-func New(token string) (*SdJwt, error) {
+// The signature will be validated using the provided public key.
+// The public key must be provided in JSON jwk format.
+// If a cnf claim is present in the token AND the sd-jwt was sent with a kb-jwt, the kb-jwt will be validated.
+func FromToken(token string, publicKey string) (*SdJwt, error) {
 	jwsSdjwt := jwsSdJwt{}
 	err := json.Unmarshal([]byte(token), &jwsSdjwt)
 	if err == nil {
 		if jwsSdjwt.Payload != nil && jwsSdjwt.Protected != nil && jwsSdjwt.Signature != nil {
-			return validateJws(jwsSdjwt)
+			return validateJws(jwsSdjwt, publicKey)
 		} else {
 			return nil, errors.New("invalid JWS format SD-JWT provided")
 		}
 	} else {
-		return validateJwt(token)
+		return validateJwt(token, publicKey)
 	}
 	//todo: validate jwt
 	//todo: reject if duplicate digests found
+	//todo: check iat if present (have tolerance for clock skew, user defines how long jwt is valid for)
+	//todo: check exp if present (have tolerance for clock skew
+	//todo: add toggle for key binding jwt validation
+	//todo: allow consumer to pass a custom kb validation function as cnf alternative
 }
 
-func validateJws(token jwsSdJwt) (*SdJwt, error) {
+func validateJws(token jwsSdJwt, publicKey string) (*SdJwt, error) {
 	sdJwt := &SdJwt{}
+
+	sdJwt.publicKey = publicKey
+	sdJwt.kbJwt = token.KbJwt
 
 	b, err := json.Marshal(token)
 	if err != nil {
@@ -112,11 +128,34 @@ func validateJws(token jwsSdJwt) (*SdJwt, error) {
 
 	sdJwt.body = m
 
+	valid, err := validateSignature(sdJwt.head, fmt.Sprintf("%s.%s", *token.Protected, *token.Payload), sdJwt.signature, publicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if !valid {
+		return nil, errors.New("invalid signature")
+	}
+
+	if sdJwt.kbJwt != nil {
+		valid, err = validateKbJwt(*sdJwt.kbJwt, sdJwt.body)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if !valid {
+			return nil, errors.New("key-bound jwt has invalid signature")
+		}
+	}
+
 	return sdJwt, nil
 }
 
-func validateJwt(token string) (*SdJwt, error) {
+func validateJwt(token string, publicKey string) (*SdJwt, error) {
 	sdJwt := &SdJwt{}
+
+	sdJwt.publicKey = publicKey
 
 	sections := strings.Split(token, "~")
 	if len(sections) < 2 {
@@ -125,7 +164,7 @@ func validateJwt(token string) (*SdJwt, error) {
 
 	sdJwt.token = sections[0]
 
-	tokenSections := strings.Split(token, ".")
+	tokenSections := strings.Split(sections[0], ".")
 
 	if len(tokenSections) != 3 {
 		return nil, errors.New("token is not a valid JWT")
@@ -145,6 +184,16 @@ func validateJwt(token string) (*SdJwt, error) {
 	sdJwt.head = jwtHead
 
 	sdJwt.signature = tokenSections[2]
+
+	if sections[len(sections)-1] != "" && sections[len(sections)-1][len(sections[len(sections)-1])-1:] != "~" {
+		kbJwt := checkForKbJwt(sections[len(sections)-1])
+
+		if kbJwt == nil {
+			return nil, errors.New("if no kb-jwt is provided, the last disclosure must be followed by a ~")
+		}
+		sdJwt.kbJwt = kbJwt
+		sections = sections[:len(sections)-1]
+	}
 
 	disclosures, err := validateDisclosures(sections[1:])
 	if err != nil {
@@ -184,7 +233,85 @@ func validateJwt(token string) (*SdJwt, error) {
 
 	sdJwt.body = m
 
+	valid, err := validateSignature(sdJwt.head, strings.Join(tokenSections[0:2], "."), sdJwt.signature, publicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if !valid {
+		return nil, errors.New("invalid signature")
+	}
+
+	if sdJwt.kbJwt != nil {
+		valid, err = validateKbJwt(*sdJwt.kbJwt, sdJwt.body)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if !valid {
+			return nil, errors.New("key-bound jwt has invalid signature")
+		}
+	}
+
 	return sdJwt, nil
+}
+
+func validateKbJwt(kbJwt string, sdJwtBody map[string]any) (bool, error) {
+	kbjc := strings.Split(kbJwt, ".")
+
+	if len(kbjc) != 3 {
+		return false, errors.New("kb jwt is in an invalid format")
+	}
+
+	//head
+	kbhb, err := base64.RawURLEncoding.DecodeString(kbjc[0])
+	if err != nil {
+		return false, err
+	}
+	var kbh map[string]any
+	err = json.Unmarshal(kbhb, &kbh)
+	if err != nil {
+		return false, err
+	}
+
+	//body
+	kbbb, err := base64.RawURLEncoding.DecodeString(kbjc[1])
+	if err != nil {
+		return false, err
+	}
+	var kbb map[string]any
+	err = json.Unmarshal(kbbb, &kbb)
+	if err != nil {
+		return false, err
+	}
+
+	//validate kb jwt contents
+	if kbh["typ"] != "kb+jwt" {
+		return false, errors.New("kb jwt is not of type kb+jwt")
+	}
+
+	//todo: if no other public key retrieval methods are specified, fall back to cnf
+	pkm := sdJwtBody["cnf"].(map[string]any)["jwk"].(map[string]any)
+	pkb, err := json.Marshal(pkm)
+	if err != nil {
+		return false, err
+	}
+
+	return validateSignature(kbh, strings.Join(kbjc[0:2], "."), kbjc[2], string(pkb))
+}
+
+func checkForKbJwt(candidate string) *string {
+	if !strings.Contains(candidate, ".") {
+		return nil
+	}
+
+	sections := strings.Split(candidate, ".")
+	if len(sections) != 3 {
+		return nil
+	}
+
+	return &candidate
 }
 
 func newDisclosure(d []byte) (*Disclosure, error) {
@@ -285,11 +412,30 @@ func (s *SdJwt) GetDisclosedClaims() (map[string]any, error) {
 
 		var h hash.Hash
 
-		switch s.body["_sd_alg"] {
-		case "none":
-			return nil, errors.New("none is not a valid algorithm")
-		case "sha-256":
+		switch strings.ToLower(s.body["_sd_alg"].(string)) {
+		case "sha-256", "":
+			// default to sha-256
 			h = sha256.New()
+		case "sha-224":
+			h = sha256.New224()
+		case "sha-512":
+			h = sha512.New()
+		case "sha-384":
+			h = sha512.New384()
+		case "sha-512/224":
+			h = sha512.New512_224()
+		case "sha-512/256":
+			h = sha512.New512_256()
+		case "sha3-224":
+			h = crypto.SHA3_224.New()
+		case "sha3-256":
+			h = crypto.SHA3_256.New()
+		case "sha3-384":
+			h = crypto.SHA3_384.New()
+		case "sha3-512":
+			h = crypto.SHA3_512.New()
+		default:
+			return nil, errors.New("unsupported _sd_alg: " + s.body["_sd_alg"].(string))
 		}
 
 		h.Write([]byte(d.EncodedValue()))
@@ -321,6 +467,17 @@ func (s *SdJwt) GetDisclosedClaims() (map[string]any, error) {
 	}
 
 	return bodyMap, nil
+}
+
+func validateSignature(head map[string]any, signedBody, signature string, publicKey string) (bool, error) {
+	alg := head["alg"].(string)
+
+	signer, err := jwt.GetSigner(strings.ToUpper(alg))
+	if err != nil {
+		return false, err
+	}
+
+	return signer.ValidateSignature(signedBody, signature, publicKey)
 }
 
 func getDigests(m map[string]any) []any {
@@ -474,6 +631,16 @@ func (s *SdJwt) Head() map[string]any {
 // Disclosures returns the disclosures of the SD-JWT
 func (s *SdJwt) Disclosures() []Disclosure {
 	return s.disclosures
+}
+
+// PublicKey returns the public key json (if provided)
+func (s *SdJwt) PublicKey() string {
+	return s.publicKey
+}
+
+// KbJwt returns the signed kb-jwt (if provided)
+func (s *SdJwt) KbJwt() *string {
+	return s.kbJwt
 }
 
 // ClaimName returns the claim name of the disclosure
