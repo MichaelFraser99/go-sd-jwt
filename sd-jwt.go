@@ -70,12 +70,10 @@ func FromToken(token string, publicKey string) (*SdJwt, error) {
 	} else {
 		return validateJwt(token, publicKey)
 	}
-	//todo: validate jwt
-	//todo: reject if duplicate digests found
-	//todo: check iat if present (have tolerance for clock skew, user defines how long jwt is valid for)
-	//todo: check exp if present (have tolerance for clock skew
+	//todo: check iat if present (have tolerance for clock skew, user defines how long jwt is valid for) - not sure if this is needed, might delegate to consumer
+	//todo: check exp if present (have tolerance for clock skew) - not sure if this is needed, might delegate to consumer
 	//todo: add toggle for key binding jwt validation
-	//todo: allow consumer to pass a custom kb validation function as cnf alternative
+	//todo: allow consumer to pass a kb public key as cnf alternative
 }
 
 func validateJws(token jwsSdJwt, publicKey string) (*SdJwt, error) {
@@ -215,20 +213,6 @@ func validateJwt(token string, publicKey string) (*SdJwt, error) {
 	err = validateDigests(m)
 	if err != nil {
 		return nil, err
-	}
-
-	digests := getDigests(m)
-
-	for _, d := range digests {
-		count := 0
-		for _, d2 := range sdJwt.disclosures {
-			if d == d2 {
-				count++
-			}
-		}
-		if count > 1 {
-			return nil, errors.New("duplicate digest found")
-		}
 	}
 
 	sdJwt.body = m
