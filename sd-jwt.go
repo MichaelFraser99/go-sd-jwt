@@ -11,7 +11,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/MichaelFraser99/go-sd-jwt/internal/jwt"
+	e "github.com/MichaelFraser99/go-sd-jwt/internal/error"
+	"github.com/MichaelFraser99/go-sd-jwt/internal/jose"
 	"hash"
 	"reflect"
 	"strings"
@@ -65,17 +66,11 @@ func FromToken(token string, publicKey string) (*SdJwt, error) {
 		if jwsSdjwt.Payload != nil && jwsSdjwt.Protected != nil && jwsSdjwt.Signature != nil {
 			return validateJws(jwsSdjwt, publicKey)
 		} else {
-			return nil, errors.New("invalid JWS format SD-JWT provided")
+			return nil, &e.InvalidToken{Message: "invalid JWS format SD-JWT provided"}
 		}
 	} else {
 		return validateJwt(token, publicKey)
 	}
-	//todo: validate jwt
-	//todo: reject if duplicate digests found
-	//todo: check iat if present (have tolerance for clock skew, user defines how long jwt is valid for)
-	//todo: check exp if present (have tolerance for clock skew
-	//todo: add toggle for key binding jwt validation
-	//todo: allow consumer to pass a custom kb validation function as cnf alternative
 }
 
 func validateJws(token jwsSdJwt, publicKey string) (*SdJwt, error) {
@@ -86,18 +81,18 @@ func validateJws(token jwsSdJwt, publicKey string) (*SdJwt, error) {
 
 	b, err := json.Marshal(token)
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to json parse provided jws token: %s", err.Error())}
 	}
 	sdJwt.token = string(b)
 
 	hb, err := base64.RawURLEncoding.DecodeString(*token.Protected)
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to decode protected header: %s", err.Error())}
 	}
 	var head map[string]any
 	err = json.Unmarshal(hb, &head)
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to json parse decoded protected header: %s", err.Error())}
 	}
 	sdJwt.head = head
 
@@ -105,47 +100,47 @@ func validateJws(token jwsSdJwt, publicKey string) (*SdJwt, error) {
 
 	disclosures, err := validateDisclosures(token.Disclosures)
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to validate disclosures: %s", err.Error())}
 	}
 
 	sdJwt.disclosures = disclosures
 
 	b, err = base64.RawURLEncoding.DecodeString(*token.Payload)
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to decode payload: %s", err.Error())}
 	}
 
 	var m map[string]any
 	err = json.Unmarshal(b, &m)
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to json parse decoded payload: %s", err.Error())}
 	}
 
 	err = validateDigests(m)
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to validate digests: %s", err.Error())}
 	}
 
 	sdJwt.body = m
 
 	valid, err := validateSignature(sdJwt.head, fmt.Sprintf("%s.%s", *token.Protected, *token.Payload), sdJwt.signature, publicKey)
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to validate signature: %s", err.Error())}
 	}
 
 	if !valid {
-		return nil, errors.New("invalid signature")
+		return nil, &e.InvalidToken{Message: "invalid signature"}
 	}
 
 	if sdJwt.kbJwt != nil {
 		valid, err = validateKbJwt(*sdJwt.kbJwt, sdJwt.body)
 
 		if err != nil {
-			return nil, err
+			return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to validate kb-jwt: %s", err.Error())}
 		}
 
 		if !valid {
-			return nil, errors.New("key-bound jwt has invalid signature")
+			return nil, &e.InvalidToken{Message: "key-bound jwt has invalid signature"}
 		}
 	}
 
@@ -159,7 +154,7 @@ func validateJwt(token string, publicKey string) (*SdJwt, error) {
 
 	sections := strings.Split(token, "~")
 	if len(sections) < 2 {
-		return nil, errors.New("token has no specified disclosures")
+		return nil, &e.InvalidToken{Message: "token has no specified disclosures"}
 	}
 
 	sdJwt.token = sections[0]
@@ -167,18 +162,18 @@ func validateJwt(token string, publicKey string) (*SdJwt, error) {
 	tokenSections := strings.Split(sections[0], ".")
 
 	if len(tokenSections) != 3 {
-		return nil, errors.New("token is not a valid JWT")
+		return nil, &e.InvalidToken{Message: "token is not a valid JWT"}
 	}
 
 	jwtHead := map[string]any{}
 	hb, err := base64.RawURLEncoding.DecodeString(tokenSections[0])
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to decode header: %s", err.Error())}
 	}
 
 	err = json.Unmarshal(hb, &jwtHead)
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to json parse decoded header: %s", err.Error())}
 	}
 
 	sdJwt.head = jwtHead
@@ -189,7 +184,7 @@ func validateJwt(token string, publicKey string) (*SdJwt, error) {
 		kbJwt := checkForKbJwt(sections[len(sections)-1])
 
 		if kbJwt == nil {
-			return nil, errors.New("if no kb-jwt is provided, the last disclosure must be followed by a ~")
+			return nil, &e.InvalidToken{Message: "if no kb-jwt is provided, the last disclosure must be followed by a ~"}
 		}
 		sdJwt.kbJwt = kbJwt
 		sections = sections[:len(sections)-1]
@@ -197,60 +192,46 @@ func validateJwt(token string, publicKey string) (*SdJwt, error) {
 
 	disclosures, err := validateDisclosures(sections[1:])
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to validate disclosures: %s", err.Error())}
 	}
 	sdJwt.disclosures = disclosures
 
 	b, err := base64.RawURLEncoding.DecodeString(tokenSections[1])
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to decode payload: %s", err.Error())}
 	}
 
 	var m map[string]any
 	err = json.Unmarshal(b, &m)
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to json parse decoded payload: %s", err.Error())}
 	}
 
 	err = validateDigests(m)
 	if err != nil {
-		return nil, err
-	}
-
-	digests := getDigests(m)
-
-	for _, d := range digests {
-		count := 0
-		for _, d2 := range sdJwt.disclosures {
-			if d == d2 {
-				count++
-			}
-		}
-		if count > 1 {
-			return nil, errors.New("duplicate digest found")
-		}
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to validate digests: %s", err.Error())}
 	}
 
 	sdJwt.body = m
 
 	valid, err := validateSignature(sdJwt.head, strings.Join(tokenSections[0:2], "."), sdJwt.signature, publicKey)
 	if err != nil {
-		return nil, err
+		return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to validate signature: %s", err.Error())}
 	}
 
 	if !valid {
-		return nil, errors.New("invalid signature")
+		return nil, &e.InvalidToken{Message: "invalid signature"}
 	}
 
 	if sdJwt.kbJwt != nil {
 		valid, err = validateKbJwt(*sdJwt.kbJwt, sdJwt.body)
 
 		if err != nil {
-			return nil, err
+			return nil, &e.InvalidToken{Message: fmt.Sprintf("failed to validate kb-jwt: %s", err.Error())}
 		}
 
 		if !valid {
-			return nil, errors.New("key-bound jwt has invalid signature")
+			return nil, &e.InvalidToken{Message: "key-bound jwt has invalid signature"}
 		}
 	}
 
@@ -472,7 +453,7 @@ func (s *SdJwt) GetDisclosedClaims() (map[string]any, error) {
 func validateSignature(head map[string]any, signedBody, signature string, publicKey string) (bool, error) {
 	alg := head["alg"].(string)
 
-	signer, err := jwt.GetSigner(strings.ToUpper(alg))
+	signer, err := jose.GetSigner(strings.ToUpper(alg))
 	if err != nil {
 		return false, err
 	}

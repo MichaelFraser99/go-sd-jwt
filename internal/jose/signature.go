@@ -1,11 +1,12 @@
-package jwt
+package jose
 
 import (
 	"crypto"
 	"fmt"
-	"github.com/MichaelFraser99/go-sd-jwt/internal/jwt/algorithms/es256"
-	"github.com/MichaelFraser99/go-sd-jwt/internal/jwt/algorithms/es384"
-	"github.com/MichaelFraser99/go-sd-jwt/internal/jwt/algorithms/es512"
+	"github.com/MichaelFraser99/go-sd-jwt/internal/jose/algorithms/es256"
+	"github.com/MichaelFraser99/go-sd-jwt/internal/jose/algorithms/es384"
+	"github.com/MichaelFraser99/go-sd-jwt/internal/jose/algorithms/es512"
+	e "github.com/MichaelFraser99/go-sd-jwt/internal/jose/error"
 )
 
 type Signer interface {
@@ -25,7 +26,7 @@ func GetSigner(alg string) (Signer, error) {
 		s = &es512.ES512{}
 
 	default:
-		return nil, fmt.Errorf("unsupported algorithm: '%s'", alg)
+		return nil, &e.UnsupportedAlgorithm{Message: fmt.Sprintf("unsupported algorithm: '%s'", alg)}
 	}
 
 	return s, nil
