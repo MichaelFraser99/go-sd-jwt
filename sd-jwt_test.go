@@ -20,7 +20,7 @@ func TestFromToken(t *testing.T) {
 
 	sdJwt, err := go_sd_jwt.FromToken(exampleJwt, examplePublicKey)
 	if err != nil {
-		t.Error("error should be nilL", err)
+		t.Error("error should be nil", err)
 	}
 	if sdJwt == nil {
 		t.Error("sdJwt should not be nil")
@@ -168,7 +168,7 @@ func TestFromToken_DuplicateDisclosure(t *testing.T) {
 	if sdJwt != nil {
 		t.Error("sdJwt should be nil: ", sdJwt)
 	}
-	if err.Error() != "duplicate disclosure found" {
+	if err.Error() != "failed to validate disclosures: duplicate disclosure found" {
 		t.Error("error message is not correct: ", err.Error())
 	}
 }
@@ -190,7 +190,7 @@ func TestFromToken_DuplicateDigest(t *testing.T) {
 			t.Log("iteration: ", i)
 			t.Error("sdJwt should be nil: ", sdJwt)
 		}
-		if err.Error() != "duplicate digest found" {
+		if err.Error() != "failed to validate digests: duplicate digest found" {
 			t.Log("iteration: ", i)
 			t.Error("error message is not correct: ", err.Error())
 		}

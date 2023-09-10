@@ -60,7 +60,7 @@ func TestES384_Sign(t *testing.T) {
 	}
 	jsonPk, err := json.Marshal(publicKey)
 	if err != nil {
-		t.Error("no error should be thrown", err)
+		t.Error("no error should be thrown:", err)
 		t.FailNow()
 	}
 	t.Log(*token)
@@ -69,7 +69,7 @@ func TestES384_Sign(t *testing.T) {
 	components := strings.Split(*token, ".")
 	valid, err := es384.ValidateSignature(strings.Join(components[0:2], "."), components[2], string(jsonPk))
 	if err != nil {
-		t.Error("no error should be thrown", err)
+		t.Error("no error should be thrown:", err)
 	}
 	if !valid {
 		t.Error("signature is not valid")

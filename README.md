@@ -129,3 +129,11 @@ Signature returns the signature of the provided token used to verify it
 func (s *SdJwt) Token() string
 ```
 Token returns the JWT token as it was received
+
+### Errors
+This package defines the following errors:
+- InvalidToken - The provided token is malformed in some way
+- InvalidSignature - The signature of the token is invalid
+- UnsupportedAlgorithm - The algorithm used to sign the token is not supported
+- InvalidPublicKey - The provided public key is invalid
+- SigningError - An error occurred while signing the token
