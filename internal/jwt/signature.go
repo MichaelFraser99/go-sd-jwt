@@ -2,7 +2,6 @@ package jwt
 
 import (
 	"crypto"
-	"errors"
 	"fmt"
 	"github.com/MichaelFraser99/go-sd-jwt/internal/jwt/algorithms/es256"
 	"github.com/MichaelFraser99/go-sd-jwt/internal/jwt/algorithms/es384"
@@ -26,7 +25,7 @@ func GetSigner(alg string) (Signer, error) {
 		s = &es512.ES512{}
 
 	default:
-		return nil, errors.New(fmt.Sprintf("unsupported algorithm: '%s'", alg))
+		return nil, fmt.Errorf("unsupported algorithm: '%s'", alg)
 	}
 
 	return s, nil

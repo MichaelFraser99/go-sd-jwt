@@ -44,19 +44,24 @@ func TestES256_Sign(t *testing.T) {
 	token, privateKey, publicKey, err := es256.Sign(body, headerKeys)
 	if err != nil {
 		t.Error("no error should be thrown", err)
+		t.FailNow()
 	}
 	if token == nil {
 		t.Error("token should not be nil")
+		t.FailNow()
 	}
 	if privateKey == nil {
 		t.Error("private key should not be nil")
+		t.FailNow()
 	}
 	if publicKey == nil {
 		t.Error("public key should not be nil")
+		t.FailNow()
 	}
 	jsonPk, err := json.Marshal(publicKey)
 	if err != nil {
 		t.Error("no error should be thrown", err)
+		t.FailNow()
 	}
 	t.Log(*token)
 	t.Log(string(jsonPk))
@@ -65,8 +70,10 @@ func TestES256_Sign(t *testing.T) {
 	valid, err := es256.ValidateSignature(strings.Join(components[0:2], "."), components[2], string(jsonPk))
 	if err != nil {
 		t.Error("no error should be thrown", err)
+		t.FailNow()
 	}
 	if !valid {
 		t.Error("signature is not valid")
+		t.FailNow()
 	}
 }

@@ -44,19 +44,24 @@ func TestES384_Sign(t *testing.T) {
 	token, privateKey, publicKey, err := es384.Sign(body, headerKeys)
 	if err != nil {
 		t.Error("no error should be thrown", err)
+		t.FailNow()
 	}
 	if token == nil {
 		t.Error("token should not be nil")
+		t.FailNow()
 	}
 	if privateKey == nil {
 		t.Error("private key should not be nil")
+		t.FailNow()
 	}
 	if publicKey == nil {
 		t.Error("public key should not be nil")
+		t.FailNow()
 	}
 	jsonPk, err := json.Marshal(publicKey)
 	if err != nil {
 		t.Error("no error should be thrown", err)
+		t.FailNow()
 	}
 	t.Log(*token)
 	t.Log(string(jsonPk))

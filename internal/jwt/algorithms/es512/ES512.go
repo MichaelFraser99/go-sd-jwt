@@ -70,8 +70,8 @@ func (signer *ES512) extractRSFromSignature(signature string) (*big.Int, *big.In
 		return nil, nil, err
 	}
 
-	if len(decodedSignature) < 130 || len(decodedSignature) > 132 {
-		return nil, nil, errors.New("signature should be between 130 and 132 bytes for ES512")
+	if len(decodedSignature) != 132 {
+		return nil, nil, errors.New("signature should be 132 bytes for ES512")
 	}
 	rb := decodedSignature[:66]
 	sb := decodedSignature[66:]
