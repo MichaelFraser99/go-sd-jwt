@@ -21,7 +21,7 @@ Currently, the module will support the following jwt signing algorithms:
 
 ## Functions
 ### Pointer
-```go 
+```go
 func Pointer[T comparable](t T) *T
 ```
 Pointer is a helper method that returns a pointer to the given value.
@@ -107,10 +107,10 @@ func (s *SdJwt) GetDisclosedClaims() (map[string]any, error)
 ```
 GetDisclosedClaims returns the claims that were disclosed in the token or
 included as plaintext values. This function will error one of the following
-scenarios is encountered: 
+scenarios is encountered:
 1. The SD-JWT contains a disclosure that does not
 match an included digest
-2. The SD-JWT contains a malformed _sd claim 
+2. The SD-JWT contains a malformed _sd claim
 3. The SD-JWT contains an unsupported value for the _sd_alg claim
 4. The SD-JWT has a disclosure that is malformed for the use (e.g. doesn't contain a claim
 name for a non-array digest)
@@ -129,4 +129,3 @@ Signature returns the signature of the provided token used to verify it
 func (s *SdJwt) Token() string
 ```
 Token returns the JWT token as it was received
-
