@@ -7,3 +7,9 @@
 - Option to provide "additional validation" for sd-jwt validation
 - Option to provide "additional validation" for kb-jwt validation
 - Function to retrieve kb-jwt contents as map
+
+
+Signing:
+    - pass json object
+    - specify keys to selectively disclose
+    - return sdjwt object

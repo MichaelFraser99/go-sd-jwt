@@ -11,8 +11,8 @@ import (
 
 type Signer interface {
 	ValidateSignature(token, signature string, publicKey string) (bool, error)
-	Sign(body map[string]interface{}, headerKeys map[string]string) (*string, crypto.PrivateKey, crypto.PublicKey, error)
-	SignWithKey(body map[string]interface{}, headerKeys map[string]string, privateKey string) (*string, error)
+	Sign(body map[string]any, headerKeys map[string]string) (*string, crypto.PrivateKey, crypto.PublicKey, error)
+	SignWithKey(body map[string]any, headerKeys map[string]string, privateKey string) (*string, error)
 }
 
 func GetSigner(alg string) (Signer, error) {

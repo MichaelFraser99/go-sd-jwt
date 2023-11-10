@@ -29,7 +29,7 @@ func (signer *ES512) ValidateSignature(token, signature string, publicKeyJson st
 	return ecdsa.Verify(pk, bodyHash[:], r, s), nil
 }
 
-func (signer *ES512) Sign(body map[string]interface{}, headerKeys map[string]string) (*string, crypto.PrivateKey, crypto.PublicKey, error) {
+func (signer *ES512) Sign(body map[string]any, headerKeys map[string]string) (*string, crypto.PrivateKey, crypto.PublicKey, error) {
 	curve := elliptic.P521()
 	pk, err := ecdsa.GenerateKey(curve, rand.Reader)
 	if err != nil {
@@ -52,6 +52,6 @@ func (signer *ES512) Sign(body map[string]interface{}, headerKeys map[string]str
 
 	return signedToken, pk, pubKey, nil
 }
-func (signer *ES512) SignWithKey(body map[string]interface{}, headerKeys map[string]string, privateKey string) (*string, error) {
+func (signer *ES512) SignWithKey(body map[string]any, headerKeys map[string]string, privateKey string) (*string, error) {
 	return nil, nil //todo
 }

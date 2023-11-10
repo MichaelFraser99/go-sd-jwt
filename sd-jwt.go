@@ -15,6 +15,7 @@ import (
 	"github.com/MichaelFraser99/go-sd-jwt/internal/jose"
 	"hash"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -313,6 +314,9 @@ func newDisclosure(d []byte) (*Disclosure, error) {
 	if len(parts) == 2 {
 		disclosure.setSalt(*cleanStr(parts[0]))
 		disclosure.setClaimValue(*cleanStr(parts[1]))
+	} else if strings.Contains(parts[1], "{") || strings.Contains(parts[1], "[") {
+		disclosure.setSalt(*cleanStr(parts[0]))
+		disclosure.setClaimValue(*cleanStr(strings.Join(parts[1:], ",")))
 	} else {
 		parts[2] = strings.Join(parts[2:], ",")
 		parts = parts[:3]
@@ -325,6 +329,7 @@ func newDisclosure(d []byte) (*Disclosure, error) {
 		disclosure.setClaimName(cleanStr(parts[1]))
 		disclosure.setClaimValue(*cleanStr(parts[2]))
 	}
+
 	return disclosure, nil
 }
 
@@ -360,7 +365,7 @@ func validateDisclosures(disclosures []string) ([]Disclosure, error) {
 	return disclosureArray, nil
 }
 
-func validateDigests(body map[string]interface{}) error {
+func validateDigests(body map[string]any) error {
 	digests := getDigests(body)
 
 	for _, d := range digests {
@@ -384,70 +389,123 @@ func validateDigests(body map[string]interface{}) error {
 // 3. The SD-JWT contains an unsupported value for the _sd_alg claim
 // 4. The SD-JWT has a disclosure that is malformed for the use (e.g. doesn't contain a claim name for a non-array digest)
 func (s *SdJwt) GetDisclosedClaims() (map[string]any, error) {
-	bodyMap := make(map[string]any)
 
 	disclosuresToCheck := make([]Disclosure, len(s.disclosures))
 	copy(disclosuresToCheck, s.disclosures)
-	for len(disclosuresToCheck) > 0 {
-		d := disclosuresToCheck[0]
 
-		var h hash.Hash
+	var h hash.Hash
 
-		switch strings.ToLower(s.body["_sd_alg"].(string)) {
-		case "sha-256", "":
-			// default to sha-256
-			h = sha256.New()
-		case "sha-224":
-			h = sha256.New224()
-		case "sha-512":
-			h = sha512.New()
-		case "sha-384":
-			h = sha512.New384()
-		case "sha-512/224":
-			h = sha512.New512_224()
-		case "sha-512/256":
-			h = sha512.New512_256()
-		case "sha3-224":
-			h = crypto.SHA3_224.New()
-		case "sha3-256":
-			h = crypto.SHA3_256.New()
-		case "sha3-384":
-			h = crypto.SHA3_384.New()
-		case "sha3-512":
-			h = crypto.SHA3_512.New()
-		default:
-			return nil, errors.New("unsupported _sd_alg: " + s.body["_sd_alg"].(string))
-		}
-
-		h.Write([]byte(d.EncodedValue()))
-		hashedDisclosures := h.Sum(nil)
-		base64HashedDisclosureBytes := make([]byte, base64.RawURLEncoding.EncodedLen(len(hashedDisclosures)))
-		base64.RawURLEncoding.Encode(base64HashedDisclosureBytes, hashedDisclosures)
-
-		found, err := validateSDClaims(s.Body(), &d, string(base64HashedDisclosureBytes))
-		if err != nil {
-			return nil, err
-		}
-
-		if !found {
-			return nil, errors.New("no matching digest found: " + d.RawValue() + " encoded: " + string(base64HashedDisclosureBytes))
-		}
-
-		if len(disclosuresToCheck) > 1 {
-			disclosuresToCheck = disclosuresToCheck[1:]
-		} else {
-			disclosuresToCheck = []Disclosure{} //empty to-check array
-		}
-
+	switch strings.ToLower(s.body["_sd_alg"].(string)) {
+	case "sha-256", "":
+		// default to sha-256
+		h = sha256.New()
+	case "sha-224":
+		h = sha256.New224()
+	case "sha-512":
+		h = sha512.New()
+	case "sha-384":
+		h = sha512.New384()
+	case "sha-512/224":
+		h = sha512.New512_224()
+	case "sha-512/256":
+		h = sha512.New512_256()
+	case "sha3-224":
+		h = crypto.SHA3_224.New()
+	case "sha3-256":
+		h = crypto.SHA3_256.New()
+	case "sha3-384":
+		h = crypto.SHA3_384.New()
+	case "sha3-512":
+		h = crypto.SHA3_512.New()
+	default:
+		return nil, errors.New("unsupported _sd_alg: " + s.body["_sd_alg"].(string))
 	}
 
-	for k, v := range s.body {
-		if k != "_sd" && k != "_sd_alg" {
-			bodyMap[k] = v
+	for {
+		var indexesFound []int
+		for i := 0; i < len(disclosuresToCheck); i++ {
+			d := disclosuresToCheck[i]
+
+			h.Write([]byte(d.EncodedValue()))
+			hashedDisclosures := h.Sum(nil)
+			base64HashedDisclosureBytes := make([]byte, base64.RawURLEncoding.EncodedLen(len(hashedDisclosures)))
+			base64.RawURLEncoding.Encode(base64HashedDisclosureBytes, hashedDisclosures)
+
+			found, err := validateSDClaims(s.Body(), &d, string(base64HashedDisclosureBytes))
+			if err != nil {
+				return nil, err
+			}
+
+			if found {
+				indexesFound = append(indexesFound, i)
+			}
+			h.Reset()
+		}
+
+		if len(indexesFound) == 0 {
+			return nil, fmt.Errorf("no matching digest found for: %v", stringifyDisclosures(disclosuresToCheck))
+		}
+		slices.Sort(indexesFound)
+		slices.Reverse(indexesFound)
+		for _, i := range indexesFound {
+			disclosuresToCheck = append(disclosuresToCheck[:i], disclosuresToCheck[i+1:]...)
+		}
+		if len(disclosuresToCheck) == 0 {
+			break
 		}
 	}
+
+	bodyMap := stripSDClaims(*s.Body())
 
 	return bodyMap, nil
+}
+
+func stringifyDisclosures(disclosures []Disclosure) string {
+	result := "["
+	for i, d := range disclosures {
+		if d.ClaimName() != nil {
+			result += "(" + *d.ClaimName() + ") "
+		} else {
+			result += " "
+		}
+		result += d.ClaimValue() + " "
+		if i != len(disclosures)-1 {
+			result += ","
+		}
+	}
+	result += "]"
+	return result
+}
+
+func stripSDClaims(body map[string]any) map[string]any {
+	bodyMap := make(map[string]any)
+	for k, v := range body {
+		switch reflect.TypeOf(v).Kind() {
+		case reflect.Map:
+			bodyMap[k] = stripSDClaims(v.(map[string]any))
+		case reflect.Slice:
+			if k != "_sd" {
+				bodyMap[k] = stripSDClaimsFromSlice(v.([]any))
+			}
+		default:
+			if k != "_sd_alg" {
+				bodyMap[k] = v
+			}
+		}
+	}
+	return bodyMap
+}
+
+func stripSDClaimsFromSlice(input []any) []any {
+	for i, v := range input {
+		switch reflect.TypeOf(v).Kind() {
+		case reflect.Map:
+			input[i] = stripSDClaims(v.(map[string]any))
+		case reflect.Slice:
+			input[i] = stripSDClaimsFromSlice(v.([]any))
+		}
+	}
+	return input
 }
 
 func validateSignature(head map[string]any, signedBody, signature string, publicKey string) (bool, error) {
@@ -517,7 +575,8 @@ func parseClaimValue(cv string) (any, error) {
 func validateSDClaims(values *map[string]any, currentDisclosure *Disclosure, base64HashedDisclosure string) (found bool, err error) {
 	if _, ok := (*values)["_sd"]; ok {
 		for _, digest := range (*values)["_sd"].([]any) {
-			if digest == base64HashedDisclosure {
+			sDigest := digest.(string)
+			if sDigest == base64HashedDisclosure {
 				if currentDisclosure.ClaimName() != nil {
 					val, err := parseClaimValue(currentDisclosure.ClaimValue())
 					if err != nil {
@@ -556,130 +615,53 @@ func validateSDClaims(values *map[string]any, currentDisclosure *Disclosure, bas
 func validateArrayClaims(s *[]any, currentDisclosure *Disclosure, base64HashedDisclosure string) (found bool, err error) {
 
 	for i, v := range *s {
-		ad := &arrayDisclosure{}
-		vb, err := json.Marshal(v)
-		if err != nil {
-			return false, err
-		}
 
-		_ = json.Unmarshal(vb, ad)
+		switch reflect.TypeOf(v).Kind() {
 
-		if ad.Digest != nil {
-			if *ad.Digest == base64HashedDisclosure {
-				(*s)[i] = currentDisclosure.ClaimValue()
-				return true, nil
-			}
-		}
-
-		if reflect.TypeOf(v).Kind() == reflect.Slice {
+		case reflect.Slice:
 			found, err = validateArrayClaims(PointerSlice(v.([]any)), currentDisclosure, base64HashedDisclosure)
 			if err != nil {
-				return found, err
+				return false, err
 			}
-		}
+			if found {
+				return true, nil
+			}
 
-		if reflect.TypeOf(v).Kind() == reflect.Map {
+		case reflect.Map:
+			ad := &arrayDisclosure{}
+			vb, err := json.Marshal(v)
+			if err != nil {
+				return false, err
+			}
+
+			_ = json.Unmarshal(vb, ad)
+
+			if ad.Digest != nil {
+				if *ad.Digest == base64HashedDisclosure {
+					if strings.Contains(currentDisclosure.ClaimValue(), "{") || strings.Contains(currentDisclosure.ClaimValue(), "[") {
+						var m map[string]any
+						err = json.Unmarshal([]byte(currentDisclosure.ClaimValue()), &m)
+						if err != nil {
+							return false, err
+						}
+						(*s)[i] = m
+					} else {
+						(*s)[i] = currentDisclosure.ClaimValue()
+					}
+
+					return true, nil
+				}
+			}
+
 			found, err = validateSDClaims(PointerMap(v.(map[string]any)), currentDisclosure, base64HashedDisclosure)
 			if err != nil {
-				return found, err
+				return false, err
+			}
+			if found {
+				return true, nil
 			}
 		}
 	}
 
 	return false, nil
-}
-
-// Body returns the body of the JWT
-func (s *SdJwt) Body() *map[string]any {
-	return &s.body
-}
-
-// Token returns the JWT token as it was received
-func (s *SdJwt) Token() string {
-	return s.token
-}
-
-// Signature returns the signature of the provided token used to verify it
-func (s *SdJwt) Signature() string {
-	return s.signature
-}
-
-// Head returns the head of the JWT
-func (s *SdJwt) Head() map[string]any {
-	return s.head
-}
-
-// Disclosures returns the disclosures of the SD-JWT
-func (s *SdJwt) Disclosures() []Disclosure {
-	return s.disclosures
-}
-
-// PublicKey returns the public key json (if provided)
-func (s *SdJwt) PublicKey() string {
-	return s.publicKey
-}
-
-// KbJwt returns the signed kb-jwt (if provided)
-func (s *SdJwt) KbJwt() *string {
-	return s.kbJwt
-}
-
-// ClaimName returns the claim name of the disclosure
-func (d *Disclosure) ClaimName() *string {
-	return d.claimName
-}
-
-// ClaimValue returns the claim value of the disclosure
-func (d *Disclosure) ClaimValue() string {
-	return d.claimValue
-}
-
-// Salt returns the salt of the disclosure
-func (d *Disclosure) Salt() string {
-	return d.salt
-}
-
-// RawValue returns the decoded contents of the disclosure
-func (d *Disclosure) RawValue() string {
-	return d.rawValue
-}
-
-// EncodedValue returns the disclosure as it was listed in the original SD-JWT
-func (d *Disclosure) EncodedValue() string {
-	return d.encodedValue
-}
-
-func (d *Disclosure) setClaimName(claimName *string) {
-	d.claimName = claimName
-}
-
-func (d *Disclosure) setClaimValue(claimValue string) {
-	d.claimValue = claimValue
-}
-
-func (d *Disclosure) setSalt(salt string) {
-	d.salt = salt
-}
-
-func (d *Disclosure) setRawValue(rawValue string) {
-	d.rawValue = rawValue
-}
-
-func (d *Disclosure) setEncodedValue(encodedValue string) {
-	d.encodedValue = encodedValue
-}
-
-// Pointer is a helper method that returns a pointer to the given value.
-func Pointer[T comparable](t T) *T {
-	return &t
-}
-
-// PointerMap is a helper method that returns a pointer to the given map.
-func PointerMap(m map[string]any) *map[string]any {
-	return &m
-}
-
-// PointerSlice is a helper method that returns a pointer to the given slice.
-func PointerSlice(s []any) *[]any {
-	return &s
 }

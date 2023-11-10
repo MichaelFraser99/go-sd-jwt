@@ -25,7 +25,7 @@ func TestValidateSignatureES512(t *testing.T) {
 }
 
 func TestES512_Sign(t *testing.T) {
-	body := map[string]interface{}{
+	body := map[string]any{
 		"firstname": "john",
 		"surname":   "smith",
 		"address": map[string]string{
