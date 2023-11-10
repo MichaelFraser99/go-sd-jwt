@@ -25,7 +25,7 @@ func TestValidateSignatureES256(t *testing.T) {
 }
 
 func TestES256_Sign(t *testing.T) {
-	body := map[string]interface{}{
+	body := map[string]any{
 		"firstname": "john",
 		"surname":   "smith",
 		"address": map[string]string{
