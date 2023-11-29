@@ -67,7 +67,7 @@ func (s *SdJwt) AddKeyBindingJwt(signer crypto.Signer, hash crypto.Hash, alg, au
 	}
 
 	sdAlg, ok := s.body["_sd_alg"].(string)
-	if ok && strings.EqualFold(sdAlg, hash.String()) || strings.ToLower(hash.String()) != "sha-256" {
+	if (ok && !strings.EqualFold(sdAlg, hash.String())) || (!ok && strings.ToLower(hash.String()) != "sha-256") {
 		return errors.New("key binding jwt hashing algorithm does not match the hashing algorithm specified in the sd-jwt - if sd-jwt does not specify a hashing algorithm, sha-256 is selected by default")
 	}
 
