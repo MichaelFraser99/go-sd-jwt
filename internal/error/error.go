@@ -2,14 +2,8 @@ package error
 
 import "errors"
 
-type InvalidToken struct {
-	Message string
-}
-
-func (e *InvalidToken) Error() string {
-	return e.Message
-}
-
-var InvalidJsonError = errors.New("")
-var UnknownDisclosureError = errors.New("")
-var ClaimNotFoundError = errors.New("")
+var InvalidToken = errors.New("")
+var InvalidJson = errors.New("")
+var InvalidDisclosure = errors.New("")
+var UnknownDisclosure = errors.New("")
+var ClaimNotFound = errors.New("")

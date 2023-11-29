@@ -1,8 +1,12 @@
 package go_sd_jwt_test
 
 import (
+	"crypto"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"github.com/MichaelFraser99/go-jose"
+	"github.com/MichaelFraser99/go-jose/model"
 	go_sd_jwt "github.com/MichaelFraser99/go-sd-jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,8 +17,6 @@ import (
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
-
-var examplePublicKey = "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"b28d4MwZMjw8-00CG4xfnn9SLMVMM19SlqZpVb_uNtQ\",\"y\":\"Xv5zWwuoaTgdS6hV43yI6gBwTnjukmFQQnJ_kCxzqk8\"}"
 
 func TestFromToken(t *testing.T) {
 	tests := []struct {
@@ -27,13 +29,10 @@ func TestFromToken(t *testing.T) {
 			token: "eyJhbGciOiAiRVMyNTYifQ.eyJfc2QiOiBbIkNyUWU3UzVrcUJBSHQtbk1ZWGdjNmJkdDJTSDVhVFkxc1VfTS1QZ2tqUEkiLCAiSnpZakg0c3ZsaUgwUjNQeUVNZmVadTZKdDY5dTVxZWhabzdGN0VQWWxTRSIsICJQb3JGYnBLdVZ1Nnh5bUphZ3ZrRnNGWEFiUm9jMkpHbEFVQTJCQTRvN2NJIiwgIlRHZjRvTGJnd2Q1SlFhSHlLVlFaVTlVZEdFMHc1cnREc3JaemZVYW9tTG8iLCAiWFFfM2tQS3QxWHlYN0tBTmtxVlI2eVoyVmE1TnJQSXZQWWJ5TXZSS0JNTSIsICJYekZyendzY002R242Q0pEYzZ2Vks4QmtNbmZHOHZPU0tmcFBJWmRBZmRFIiwgImdiT3NJNEVkcTJ4Mkt3LXc1d1BFemFrb2I5aFYxY1JEMEFUTjNvUUw5Sk0iLCAianN1OXlWdWx3UVFsaEZsTV8zSmx6TWFTRnpnbGhRRzBEcGZheVF3TFVLNCJdLCAiaXNzIjogImh0dHBzOi8vZXhhbXBsZS5jb20vaXNzdWVyIiwgImlhdCI6IDE2ODMwMDAwMDAsICJleHAiOiAxODgzMDAwMDAwLCAic3ViIjogInVzZXJfNDIiLCAibmF0aW9uYWxpdGllcyI6IFt7Ii4uLiI6ICJwRm5kamtaX1ZDem15VGE2VWpsWm8zZGgta284YUlLUWM5RGxHemhhVllvIn0sIHsiLi4uIjogIjdDZjZKa1B1ZHJ5M2xjYndIZ2VaOGtoQXYxVTFPU2xlclAwVmtCSnJXWjAifV0sICJfc2RfYWxnIjogInNoYS0yNTYiLCAiY25mIjogeyJqd2siOiB7Imt0eSI6ICJFQyIsICJjcnYiOiAiUC0yNTYiLCAieCI6ICJUQ0FFUjE5WnZ1M09IRjRqNFc0dmZTVm9ISVAxSUxpbERsczd2Q2VHZW1jIiwgInkiOiAiWnhqaVdXYlpNUUdIVldLVlE0aGJTSWlyc1ZmdWVjQ0U2dDRqVDlGMkhaUSJ9fX0.kmx687kUBiIDvKWgo2Dub-TpdCCRLZwtD7TOj4RoLsUbtFBI8sMrtH2BejXtm_P6fOAjKAVc_7LRNJFgm3PJhg~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgImdpdmVuX25hbWUiLCAiSm9obiJd~WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgImZhbWlseV9uYW1lIiwgIkRvZSJd~WyI2SWo3dE0tYTVpVlBHYm9TNXRtdlZBIiwgImVtYWlsIiwgImpvaG5kb2VAZXhhbXBsZS5jb20iXQ~WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgInBob25lX251bWJlciIsICIrMS0yMDItNTU1LTAxMDEiXQ~WyJRZ19PNjR6cUF4ZTQxMmExMDhpcm9BIiwgInBob25lX251bWJlcl92ZXJpZmllZCIsIHRydWVd~WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImFkZHJlc3MiLCB7InN0cmVldF9hZGRyZXNzIjogIjEyMyBNYWluIFN0IiwgImxvY2FsaXR5IjogIkFueXRvd24iLCAicmVnaW9uIjogIkFueXN0YXRlIiwgImNvdW50cnkiOiAiVVMifV0~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0~WyJHMDJOU3JRZmpGWFE3SW8wOXN5YWpBIiwgInVwZGF0ZWRfYXQiLCAxNTcwMDAwMDAwXQ~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgIlVTIl0~WyJuUHVvUW5rUkZxM0JJZUFtN0FuWEZBIiwgIkRFIl0~",
 			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
 				if err != nil {
-					t.Error("error should be nil", err)
+					t.Errorf("error should be nil: %s", err.Error())
 				}
 				if sdJwt == nil {
 					t.Error("sdJwt should not be nil")
-				}
-				if sdJwt.Token() == "" {
-					t.Error("token should not be empty")
 				}
 				if sdJwt.Head() == nil || len(sdJwt.Head()) == 0 {
 					t.Error("head should not be empty")
@@ -62,7 +61,7 @@ func TestFromToken(t *testing.T) {
 
 				assert.Nil(t, claims["_sd"])
 				assert.Nil(t, claims["_sd_alg"])
-				assert.Equal(t, 1570000000, claims["updated_at"])
+				assert.Equal(t, float64(1570000000), claims["updated_at"])
 				assert.Len(t, claims["nationalities"], 2)
 				assert.Contains(t, claims["nationalities"], "DE")
 				assert.Contains(t, claims["nationalities"], "US")
@@ -89,9 +88,6 @@ func TestFromToken(t *testing.T) {
 				}
 				if sdJwt == nil {
 					t.Error("sdJwt should not be nil")
-				}
-				if sdJwt.Token() == "" {
-					t.Error("token should not be empty")
 				}
 				if sdJwt.Head() == nil || len(sdJwt.Head()) == 0 {
 					t.Error("head should not be empty")
@@ -126,7 +122,7 @@ func TestFromToken(t *testing.T) {
 				assert.NotNil(t, claims["address"])
 				assert.Nil(t, claims["address"].(map[string]any)["_sd"])
 				assert.Equal(t, "JP", claims["address"].(map[string]any)["country"])
-				assert.Equal(t, "\\u6e2f\\u533a", claims["address"].(map[string]any)["region"])
+				assert.Equal(t, "港区", claims["address"].(map[string]any)["region"])
 			},
 		},
 		{
@@ -138,9 +134,6 @@ func TestFromToken(t *testing.T) {
 				}
 				if sdJwt == nil {
 					t.Error("sdJwt should not be nil")
-				}
-				if sdJwt.Token() == "" {
-					t.Error("token should not be empty")
 				}
 				if sdJwt.Head() == nil || len(sdJwt.Head()) == 0 {
 					t.Error("head should not be empty")
@@ -191,7 +184,7 @@ func TestFromToken(t *testing.T) {
 				assert.NotNil(t, claims["verified_claims"].(map[string]any)["claims"].(map[string]any)["given_name"])
 				assert.Equal(t, "Max", claims["verified_claims"].(map[string]any)["claims"].(map[string]any)["given_name"])
 				assert.NotNil(t, claims["verified_claims"].(map[string]any)["claims"].(map[string]any)["family_name"])
-				assert.Equal(t, "M\\u00fcller", claims["verified_claims"].(map[string]any)["claims"].(map[string]any)["family_name"])
+				assert.Equal(t, "Müller", claims["verified_claims"].(map[string]any)["claims"].(map[string]any)["family_name"])
 				assert.NotNil(t, claims["verified_claims"].(map[string]any)["claims"].(map[string]any)["address"])
 				assert.Equal(t, 4, len(claims["verified_claims"].(map[string]any)["claims"].(map[string]any)["address"].(map[string]any)))
 				assert.NotNil(t, claims["verified_claims"].(map[string]any)["claims"].(map[string]any)["address"].(map[string]any)["locality"])
@@ -213,9 +206,6 @@ func TestFromToken(t *testing.T) {
 				}
 				if sdJwt == nil {
 					t.Error("sdJwt should not be nil")
-				}
-				if sdJwt.Token() == "" {
-					t.Error("token should not be empty")
 				}
 				if sdJwt.Head() == nil || len(sdJwt.Head()) == 0 {
 					t.Error("head should not be empty")
@@ -254,41 +244,6 @@ func TestFromToken(t *testing.T) {
 			},
 		},
 		{
-			name:  "valid jws token",
-			token: "{\"payload\": \"eyJfc2QiOiBbIjRIQm42YUlZM1d0dUdHV1R4LXFVajZjZGs2V0JwWnlnbHRkRmF2UGE3TFkiLCAiOHNtMVFDZjAyMXBObkhBQ0k1c1A0bTRLWmd5Tk9PQVljVGo5SE5hQzF3WSIsICJTRE43OU5McEFuSFBta3JkZVlkRWE4OVhaZHNrME04REtZU1FPVTJaeFFjIiwgIlh6RnJ6d3NjTTZHbjZDSkRjNnZWSzhCa01uZkc4dk9TS2ZwUElaZEFmZEUiLCAiZ2JPc0k0RWRxMngyS3ctdzV3UEV6YWtvYjloVjFjUkQwQVROM29RTDlKTSIsICJqTUNYVnotLTliOHgzN1ljb0RmWFFpbnp3MXdaY2NjZkZSQkNGR3FkRzJvIiwgIm9LSTFHZDJmd041V3d2amxGa29oaWRHdmltLTMxT3VsUjNxMGhyRE8wNzgiXSwgImlzcyI6ICJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsICJpYXQiOiAxNjgzMDAwMDAwLCAiZXhwIjogMTg4MzAwMDAwMCwgIl9zZF9hbGciOiAic2hhLTI1NiIsICJjbmYiOiB7Imp3ayI6IHsia3R5IjogIkVDIiwgImNydiI6ICJQLTI1NiIsICJ4IjogIlRDQUVSMTladnUzT0hGNGo0VzR2ZlNWb0hJUDFJTGlsRGxzN3ZDZUdlbWMiLCAieSI6ICJaeGppV1diWk1RR0hWV0tWUTRoYlNJaXJzVmZ1ZWNDRTZ0NGpUOUYySFpRIn19fQ\",\"protected\": \"eyJhbGciOiAiRVMyNTYifQ\",\"signature\": \"qNNvkravlssjHS8TSnj5lAFc5on6MjG0peMt8Zjh1Yefxn0DxkcVOU9r7t1VNehJISOFL7NuJ5V27DVbNJBLoA\",\"disclosures\": [\"WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgInN1YiIsICJqb2huX2RvZV80MiJd\",\"WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgImdpdmVuX25hbWUiLCAiSm9obiJd\",\"WyI2SWo3dE0tYTVpVlBHYm9TNXRtdlZBIiwgImZhbWlseV9uYW1lIiwgIkRvZSJd\",\"WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgImVtYWlsIiwgImpvaG5kb2VAZXhhbXBsZS5jb20iXQ\",\"WyJRZ19PNjR6cUF4ZTQxMmExMDhpcm9BIiwgInBob25lX251bWJlciIsICIrMS0yMDItNTU1LTAxMDEiXQ\",\"WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImFkZHJlc3MiLCB7InN0cmVldF9hZGRyZXNzIjogIjEyMyBNYWluIFN0IiwgImxvY2FsaXR5IjogIkFueXRvd24iLCAicmVnaW9uIjogIkFueXN0YXRlIiwgImNvdW50cnkiOiAiVVMifV0\",\"WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0\"]}",
-			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
-				require.NoError(t, err)
-				require.NotNil(t, sdJwt)
-				assert.NotEmpty(t, sdJwt.Token())
-				assert.NotEmpty(t, sdJwt.Head())
-				assert.NotEmpty(t, sdJwt.Body())
-				assert.NotEmpty(t, sdJwt.Signature())
-				assert.NotEmpty(t, sdJwt.Disclosures())
-				assert.Len(t, sdJwt.Disclosures(), 7)
-				assert.Nil(t, sdJwt.KbJwt())
-
-				claims, err := sdJwt.GetDisclosedClaims()
-				require.NoError(t, err)
-
-				b, _ := json.Marshal(claims)
-				t.Log(string(b))
-
-				assert.Nil(t, claims["_sd"])
-				assert.Nil(t, claims["_sd_alg"])
-				assert.Equal(t, "1940-01-01", claims["birthdate"])
-				assert.NotNil(t, claims["address"])
-				assert.Equal(t, "123 Main St", claims["address"].(map[string]any)["street_address"])
-				assert.Equal(t, "Anytown", claims["address"].(map[string]any)["locality"])
-				assert.Equal(t, "Anystate", claims["address"].(map[string]any)["region"])
-				assert.Equal(t, "US", claims["address"].(map[string]any)["country"])
-				assert.Equal(t, "+1-202-555-0101", claims["phone_number"])
-				assert.Equal(t, "johndoe@example.com", claims["email"])
-				assert.Equal(t, "John", claims["given_name"])
-				assert.Equal(t, "Doe", claims["family_name"])
-				assert.Equal(t, "john_doe_42", claims["sub"])
-			},
-		},
-		{
 			name:  "valid token but duplicate disclosure",
 			token: "eyJhbGciOiAiRVMyNTYifQ.eyJfc2QiOiBbIkNyUWU3UzVrcUJBSHQtbk1ZWGdjNmJkdDJTSDVhVFkxc1VfTS1QZ2tqUEkiLCAiSnpZakg0c3ZsaUgwUjNQeUVNZmVadTZKdDY5dTVxZWhabzdGN0VQWWxTRSIsICJQb3JGYnBLdVZ1Nnh5bUphZ3ZrRnNGWEFiUm9jMkpHbEFVQTJCQTRvN2NJIiwgIlRHZjRvTGJnd2Q1SlFhSHlLVlFaVTlVZEdFMHc1cnREc3JaemZVYW9tTG8iLCAiWFFfM2tQS3QxWHlYN0tBTmtxVlI2eVoyVmE1TnJQSXZQWWJ5TXZSS0JNTSIsICJYekZyendzY002R242Q0pEYzZ2Vks4QmtNbmZHOHZPU0tmcFBJWmRBZmRFIiwgImdiT3NJNEVkcTJ4Mkt3LXc1d1BFemFrb2I5aFYxY1JEMEFUTjNvUUw5Sk0iLCAianN1OXlWdWx3UVFsaEZsTV8zSmx6TWFTRnpnbGhRRzBEcGZheVF3TFVLNCJdLCAiaXNzIjogImh0dHBzOi8vZXhhbXBsZS5jb20vaXNzdWVyIiwgImlhdCI6IDE2ODMwMDAwMDAsICJleHAiOiAxODgzMDAwMDAwLCAic3ViIjogInVzZXJfNDIiLCAibmF0aW9uYWxpdGllcyI6IFt7Ii4uLiI6ICJwRm5kamtaX1ZDem15VGE2VWpsWm8zZGgta284YUlLUWM5RGxHemhhVllvIn0sIHsiLi4uIjogIjdDZjZKa1B1ZHJ5M2xjYndIZ2VaOGtoQXYxVTFPU2xlclAwVmtCSnJXWjAifV0sICJfc2RfYWxnIjogInNoYS0yNTYiLCAiY25mIjogeyJqd2siOiB7Imt0eSI6ICJFQyIsICJjcnYiOiAiUC0yNTYiLCAieCI6ICJUQ0FFUjE5WnZ1M09IRjRqNFc0dmZTVm9ISVAxSUxpbERsczd2Q2VHZW1jIiwgInkiOiAiWnhqaVdXYlpNUUdIVldLVlE0aGJTSWlyc1ZmdWVjQ0U2dDRqVDlGMkhaUSJ9fX0.kmx687kUBiIDvKWgo2Dub-TpdCCRLZwtD7TOj4RoLsUbtFBI8sMrtH2BejXtm_P6fOAjKAVc_7LRNJFgm3PJhg~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgImdpdmVuX25hbWUiLCAiSm9obiJd~WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgImZhbWlseV9uYW1lIiwgIkRvZSJd~WyI2SWo3dE0tYTVpVlBHYm9TNXRtdlZBIiwgImVtYWlsIiwgImpvaG5kb2VAZXhhbXBsZS5jb20iXQ~WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgInBob25lX251bWJlciIsICIrMS0yMDItNTU1LTAxMDEiXQ~WyJRZ19PNjR6cUF4ZTQxMmExMDhpcm9BIiwgInBob25lX251bWJlcl92ZXJpZmllZCIsIHRydWVd~WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImFkZHJlc3MiLCB7InN0cmVldF9hZGRyZXNzIjogIjEyMyBNYWluIFN0IiwgImxvY2FsaXR5IjogIkFueXRvd24iLCAicmVnaW9uIjogIkFueXN0YXRlIiwgImNvdW50cnkiOiAiVVMifV0~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0~WyJHMDJOU3JRZmpGWFE3SW8wOXN5YWpBIiwgInVwZGF0ZWRfYXQiLCAxNTcwMDAwMDAwXQ~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgIlVTIl0~WyJuUHVvUW5rUkZxM0JJZUFtN0FuWEZBIiwgIkRFIl0~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0~",
 			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
@@ -321,9 +276,69 @@ func TestFromToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sdJwt, err := go_sd_jwt.FromToken(tt.token, examplePublicKey)
+			sdJwt, err := go_sd_jwt.New(tt.token)
 			tt.validate(t, sdJwt, err)
 		})
+	}
+}
+
+func TestNewFromJws(t *testing.T) {
+	token := "{\"payload\": \"eyJfc2QiOiBbIjRIQm42YUlZM1d0dUdHV1R4LXFVajZjZGs2V0JwWnlnbHRkRmF2UGE3TFkiLCAiOHNtMVFDZjAyMXBObkhBQ0k1c1A0bTRLWmd5Tk9PQVljVGo5SE5hQzF3WSIsICJTRE43OU5McEFuSFBta3JkZVlkRWE4OVhaZHNrME04REtZU1FPVTJaeFFjIiwgIlh6RnJ6d3NjTTZHbjZDSkRjNnZWSzhCa01uZkc4dk9TS2ZwUElaZEFmZEUiLCAiZ2JPc0k0RWRxMngyS3ctdzV3UEV6YWtvYjloVjFjUkQwQVROM29RTDlKTSIsICJqTUNYVnotLTliOHgzN1ljb0RmWFFpbnp3MXdaY2NjZkZSQkNGR3FkRzJvIiwgIm9LSTFHZDJmd041V3d2amxGa29oaWRHdmltLTMxT3VsUjNxMGhyRE8wNzgiXSwgImlzcyI6ICJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsICJpYXQiOiAxNjgzMDAwMDAwLCAiZXhwIjogMTg4MzAwMDAwMCwgIl9zZF9hbGciOiAic2hhLTI1NiIsICJjbmYiOiB7Imp3ayI6IHsia3R5IjogIkVDIiwgImNydiI6ICJQLTI1NiIsICJ4IjogIlRDQUVSMTladnUzT0hGNGo0VzR2ZlNWb0hJUDFJTGlsRGxzN3ZDZUdlbWMiLCAieSI6ICJaeGppV1diWk1RR0hWV0tWUTRoYlNJaXJzVmZ1ZWNDRTZ0NGpUOUYySFpRIn19fQ\",\"protected\": \"eyJhbGciOiAiRVMyNTYifQ\",\"signature\": \"qNNvkravlssjHS8TSnj5lAFc5on6MjG0peMt8Zjh1Yefxn0DxkcVOU9r7t1VNehJISOFL7NuJ5V27DVbNJBLoA\",\"disclosures\": [\"WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgInN1YiIsICJqb2huX2RvZV80MiJd\",\"WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgImdpdmVuX25hbWUiLCAiSm9obiJd\",\"WyI2SWo3dE0tYTVpVlBHYm9TNXRtdlZBIiwgImZhbWlseV9uYW1lIiwgIkRvZSJd\",\"WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgImVtYWlsIiwgImpvaG5kb2VAZXhhbXBsZS5jb20iXQ\",\"WyJRZ19PNjR6cUF4ZTQxMmExMDhpcm9BIiwgInBob25lX251bWJlciIsICIrMS0yMDItNTU1LTAxMDEiXQ\",\"WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImFkZHJlc3MiLCB7InN0cmVldF9hZGRyZXNzIjogIjEyMyBNYWluIFN0IiwgImxvY2FsaXR5IjogIkFueXRvd24iLCAicmVnaW9uIjogIkFueXN0YXRlIiwgImNvdW50cnkiOiAiVVMifV0\",\"WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0\"]}"
+
+	sdJwt, err := go_sd_jwt.NewFromJws(token)
+
+	require.NoError(t, err)
+	require.NotNil(t, sdJwt)
+	assert.NotEmpty(t, sdJwt.Head())
+	assert.NotEmpty(t, sdJwt.Body())
+	assert.NotEmpty(t, sdJwt.Signature())
+	assert.NotEmpty(t, sdJwt.Disclosures())
+	assert.Len(t, sdJwt.Disclosures(), 7)
+	assert.Nil(t, sdJwt.KbJwt())
+
+	claims, err := sdJwt.GetDisclosedClaims()
+	require.NoError(t, err)
+
+	b, _ := json.Marshal(claims)
+	t.Log(string(b))
+
+	assert.Nil(t, claims["_sd"])
+	assert.Nil(t, claims["_sd_alg"])
+	assert.Equal(t, "1940-01-01", claims["birthdate"])
+	assert.NotNil(t, claims["address"])
+	assert.Equal(t, "123 Main St", claims["address"].(map[string]any)["street_address"])
+	assert.Equal(t, "Anytown", claims["address"].(map[string]any)["locality"])
+	assert.Equal(t, "Anystate", claims["address"].(map[string]any)["region"])
+	assert.Equal(t, "US", claims["address"].(map[string]any)["country"])
+	assert.Equal(t, "+1-202-555-0101", claims["phone_number"])
+	assert.Equal(t, "johndoe@example.com", claims["email"])
+	assert.Equal(t, "John", claims["given_name"])
+	assert.Equal(t, "Doe", claims["family_name"])
+	assert.Equal(t, "john_doe_42", claims["sub"])
+}
+
+func TestSdJwt_AddKeyBindingJwt(t *testing.T) {
+	token := "eyJhbGciOiAiRVMyNTYifQ.eyJfc2QiOiBbIi1hU3puSWQ5bVdNOG9jdVFvbENsbHN4VmdncTEtdkhXNE90bmhVdFZtV3ciLCAiSUticllObjN2QTdXRUZyeXN2YmRCSmpERFVfRXZRSXIwVzE4dlRScFVTZyIsICJvdGt4dVQxNG5CaXd6TkozTVBhT2l0T2w5cFZuWE9hRUhhbF94a3lOZktJIl0sICJpc3MiOiAiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZS5jb20iLCAiaWF0IjogMTY4MzAwMDAwMCwgImV4cCI6IDE4ODMwMDAwMDAsICJ2ZXJpZmllZF9jbGFpbXMiOiB7InZlcmlmaWNhdGlvbiI6IHsiX3NkIjogWyI3aDRVRTlxU2N2REtvZFhWQ3VvS2ZLQkpwVkJmWE1GX1RtQUdWYVplM1NjIiwgInZUd2UzcmFISUZZZ0ZBM3hhVUQyYU14Rno1b0RvOGlCdTA1cUtsT2c5THciXSwgInRydXN0X2ZyYW1ld29yayI6ICJkZV9hbWwiLCAiZXZpZGVuY2UiOiBbeyIuLi4iOiAidFlKMFREdWN5WlpDUk1iUk9HNHFSTzV2a1BTRlJ4RmhVRUxjMThDU2wzayJ9XX0sICJjbGFpbXMiOiB7Il9zZCI6IFsiUmlPaUNuNl93NVpIYWFka1FNcmNRSmYwSnRlNVJ3dXJSczU0MjMxRFRsbyIsICJTXzQ5OGJicEt6QjZFYW5mdHNzMHhjN2NPYW9uZVJyM3BLcjdOZFJtc01vIiwgIldOQS1VTks3Rl96aHNBYjlzeVdPNklJUTF1SGxUbU9VOHI4Q3ZKMGNJTWsiLCAiV3hoX3NWM2lSSDliZ3JUQkppLWFZSE5DTHQtdmpoWDFzZC1pZ09mXzlsayIsICJfTy13SmlIM2VuU0I0Uk9IbnRUb1FUOEptTHR6LW1oTzJmMWM4OVhvZXJRIiwgImh2RFhod21HY0pRc0JDQTJPdGp1TEFjd0FNcERzYVUwbmtvdmNLT3FXTkUiXX19LCAiX3NkX2FsZyI6ICJzaGEtMjU2In0.kbfpTas9_-dLMgyeUxIXuBGLtCZUO2bG9JA7v73ebzpX1LA5MBtQsyZZut-Bm3_TW8sTqLCDPUN4ZC5pKCyQig~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgInRpbWUiLCAiMjAxMi0wNC0yM1QxODoyNVoiXQ~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgeyJfc2QiOiBbIjl3cGpWUFd1RDdQSzBuc1FETDhCMDZsbWRnVjNMVnliaEh5ZFFwVE55TEkiLCAiRzVFbmhPQU9vVTlYXzZRTU52ekZYanBFQV9SYy1BRXRtMWJHX3djYUtJayIsICJJaHdGcldVQjYzUmNacTl5dmdaMFhQYzdHb3doM08ya3FYZUJJc3dnMUI0IiwgIldweFE0SFNvRXRjVG1DQ0tPZURzbEJfZW11Y1lMejJvTzhvSE5yMWJFVlEiXX1d~WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgIm1ldGhvZCIsICJwaXBwIl0~WyJHMDJOU3JRZmpGWFE3SW8wOXN5YWpBIiwgImdpdmVuX25hbWUiLCAiTWF4Il0~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgImZhbWlseV9uYW1lIiwgIk1cdTAwZmNsbGVyIl0~WyJ5MXNWVTV3ZGZKYWhWZGd3UGdTN1JRIiwgImFkZHJlc3MiLCB7ImxvY2FsaXR5IjogIk1heHN0YWR0IiwgInBvc3RhbF9jb2RlIjogIjEyMzQ0IiwgImNvdW50cnkiOiAiREUiLCAic3RyZWV0X2FkZHJlc3MiOiAiV2VpZGVuc3RyYVx1MDBkZmUgMjIifV0~"
+	sdJwt, err := go_sd_jwt.New(token)
+	if err != nil {
+		t.Fatalf("no error should be thrown: %s", err.Error())
+	}
+
+	if sdJwt.KbJwt() != nil {
+		t.Fatalf("no kb jwt should yet exist")
+	}
+
+	signer, err := jose.GetSigner(model.RS256, &model.Opts{BitSize: 2048})
+	nonce := make([]byte, 32)
+	rand.Read(nonce)
+
+	err = sdJwt.AddKeyBindingJwt(signer, crypto.SHA256, signer.Alg().String(), "https://unused.com", string(nonce))
+	if err != nil {
+		t.Errorf("no error should be thrown: %s", err.Error())
+	}
+
+	if sdJwt.KbJwt() == nil {
+		t.Error("KB Jwt should now exist")
 	}
 }
 
@@ -334,7 +349,7 @@ func TestFromToken_AllDuplicateDigestScenarios(t *testing.T) {
 	duplicateDigestNestedSdClaimJwt := "eyJhbGciOiAiRVMyNTYifQ.ew0KICAiX3NkIjogWw0KICAgICJDclFlN1M1a3FCQUh0LW5NWVhnYzZiZHQyU0g1YVRZMXNVX00tUGdralBJIiwNCiAgICAiSnpZakg0c3ZsaUgwUjNQeUVNZmVadTZKdDY5dTVxZWhabzdGN0VQWWxTRSIsDQogICAgIlBvckZicEt1VnU2eHltSmFndmtGc0ZYQWJSb2MySkdsQVVBMkJBNG83Y0kiLA0KICAgICJUR2Y0b0xiZ3dkNUpRYUh5S1ZRWlU5VWRHRTB3NXJ0RHNyWnpmVWFvbUxvIiwNCiAgICAiWFFfM2tQS3QxWHlYN0tBTmtxVlI2eVoyVmE1TnJQSXZQWWJ5TXZSS0JNTSIsDQogICAgIlh6RnJ6d3NjTTZHbjZDSkRjNnZWSzhCa01uZkc4dk9TS2ZwUElaZEFmZEUiLA0KICAgICJnYk9zSTRFZHEyeDJLdy13NXdQRXpha29iOWhWMWNSRDBBVE4zb1FMOUpNIiwNCiAgICAianN1OXlWdWx3UVFsaEZsTV8zSmx6TWFTRnpnbGhRRzBEcGZheVF3TFVLNCINCiAgXSwNCiAgImlzcyI6ICJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsDQogICJpYXQiOiAxNjgzMDAwMDAwLA0KICAiZXhwIjogMTg4MzAwMDAwMCwNCiAgInN1YiI6ICJ1c2VyXzQyIiwNCiAgImtleSI6IHsNCiAgICAiX3NkIjogWw0KICAgICAgImpzdTl5VnVsd1FRbGhGbE1fM0psek1hU0Z6Z2xoUUcwRHBmYXlRd0xVSzQiDQogICAgXQ0KICB9LA0KICAibmF0aW9uYWxpdGllcyI6IFsNCiAgICB7DQogICAgICAiLi4uIjogInBGbmRqa1pfVkN6bXlUYTZVamxabzNkaC1rbzhhSUtRYzlEbEd6aGFWWW8iDQogICAgfSwNCiAgICB7DQogICAgICAiLi4uIjogIjdDZjZKa1B1ZHJ5M2xjYndIZ2VaOGtoQXYxVTFPU2xlclAwVmtCSnJXWjAiDQogICAgfQ0KICBdLA0KICAiX3NkX2FsZyI6ICJzaGEtMjU2IiwNCiAgImNuZiI6IHsNCiAgICAiandrIjogew0KICAgICAgImt0eSI6ICJFQyIsDQogICAgICAiY3J2IjogIlAtMjU2IiwNCiAgICAgICJ4IjogIlRDQUVSMTladnUzT0hGNGo0VzR2ZlNWb0hJUDFJTGlsRGxzN3ZDZUdlbWMiLA0KICAgICAgInkiOiAiWnhqaVdXYlpNUUdIVldLVlE0aGJTSWlyc1ZmdWVjQ0U2dDRqVDlGMkhaUSINCiAgICB9DQogIH0NCn0.kmx687kUBiIDvKWgo2Dub-TpdCCRLZwtD7TOj4RoLsUbtFBI8sMrtH2BejXtm_P6fOAjKAVc_7LRNJFgm3PJhg~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgImdpdmVuX25hbWUiLCAiSm9obiJd~WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgImZhbWlseV9uYW1lIiwgIkRvZSJd~WyI2SWo3dE0tYTVpVlBHYm9TNXRtdlZBIiwgImVtYWlsIiwgImpvaG5kb2VAZXhhbXBsZS5jb20iXQ~WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgInBob25lX251bWJlciIsICIrMS0yMDItNTU1LTAxMDEiXQ~WyJRZ19PNjR6cUF4ZTQxMmExMDhpcm9BIiwgInBob25lX251bWJlcl92ZXJpZmllZCIsIHRydWVd~WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImFkZHJlc3MiLCB7InN0cmVldF9hZGRyZXNzIjogIjEyMyBNYWluIFN0IiwgImxvY2FsaXR5IjogIkFueXRvd24iLCAicmVnaW9uIjogIkFueXN0YXRlIiwgImNvdW50cnkiOiAiVVMifV0~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0~WyJHMDJOU3JRZmpGWFE3SW8wOXN5YWpBIiwgInVwZGF0ZWRfYXQiLCAxNTcwMDAwMDAwXQ~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgIlVTIl0~WyJuUHVvUW5rUkZxM0JJZUFtN0FuWEZBIiwgIkRFIl0~"
 
 	for i, testJwt := range []string{duplicateDigestSdClaimJwt, duplicateDigestArrayClaimJwt, duplicateDigestSdArrayClaimJwt, duplicateDigestNestedSdClaimJwt} {
-		sdJwt, err := go_sd_jwt.FromToken(testJwt, examplePublicKey)
+		sdJwt, err := go_sd_jwt.New(testJwt)
 		if err == nil {
 			t.Log("iteration: ", i)
 			t.Error("error should be thrown")
