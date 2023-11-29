@@ -329,8 +329,14 @@ func TestSdJwt_AddKeyBindingJwt(t *testing.T) {
 	}
 
 	signer, err := jose.GetSigner(model.RS256, &model.Opts{BitSize: 2048})
+	if err != nil {
+		t.Fatalf("failed to get signer %s", err.Error())
+	}
 	nonce := make([]byte, 32)
-	rand.Read(nonce)
+	_, err = rand.Read(nonce)
+	if err != nil {
+		t.Errorf("error generating nonce value: %s", err.Error())
+	}
 
 	err = sdJwt.AddKeyBindingJwt(signer, crypto.SHA256, signer.Alg().String(), "https://unused.com", string(nonce))
 	if err != nil {
