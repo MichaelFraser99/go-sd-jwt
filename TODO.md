@@ -7,6 +7,7 @@
 - Option to provide "additional validation" for sd-jwt validation
 - Option to provide "additional validation" for kb-jwt validation
 - Function to retrieve kb-jwt contents as map
+- KB JWT hash validation
 
 
 Signing:
