@@ -13,12 +13,6 @@ For more information on SD-JWTs, see the [Selective Disclosure JWTs RFC](https:/
 go get github.com/MichaelFraser99/go-sd-jwt
 ```
 
-## Algorithms Supported
-Currently, the module will support the following jwt signing algorithms:
-- ES256
-- ES384
-- ES512
-
 ## Functions
 ### Pointer
 ```go
