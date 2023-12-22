@@ -52,9 +52,25 @@ type Disclosure struct {
 ```
 This object represents a single disclosure in a SD-JWT. The EncodedValue property returns the disclosure string as provided in the original sd jwt
 
-
+```go
+func NewFromObject(key string, value any, salt *string) (*Disclosure, error)
 ```
-Salt returns the salt of the disclosure
+NewFromObject creates a Disclosure object for the provided key/value pair and optional salt. If no salt provided, a new salt value of 128 bytes is generated
+
+```go
+func NewFromArrayElement(element any, salt *string) (*Disclosure, error)
+```
+NewFromArrayElement creates a Disclosure object for the provided array element and optional salt. If no salt provided, a new salt value of 128 bytes is generated
+
+```go
+func NewFromDisclosure(disclosure string) (*Disclosure, error)
+```
+NewFromDisclosure creates a Disclosure object from the provided encoded disclosure string
+
+```go
+func (d *Disclosure) Hash(hash hash.Hash)
+```
+Hash returns the digest bytes of the current disclosure using the provided hash
 
 ### SdJwt
 ```go
@@ -95,6 +111,14 @@ match an included digest
 3. The SD-JWT contains an unsupported value for the _sd_alg claim
 4. The SD-JWT has a disclosure that is malformed for the use (e.g. doesn't contain a claim
 name for a non-array digest)
+
+### Usage
+For an example e2e flow of an SD Jwt see the e2e_test
+Contains examples of:
+- creating an SD Jwt as an issuer
+- receiving the SD Jwt as a holder
+- re-issuing the SD Jwt as a holder with a subset of disclosures
+- receiving the SD Jwt as a consumer
 
 ### Errors
 This package defines the following errors:
