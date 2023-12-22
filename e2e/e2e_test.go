@@ -188,7 +188,7 @@ func TestE2E(t *testing.T) {
 			t.Fatalf("error disclosing claims: %s", err.Error())
 		}
 
-		body := *sdJwt.Body()
+		body := sdJwt.Body
 
 		t.Run("validate body", func(t *testing.T) {
 			keyPresent(t, body, "birth_middle_name")

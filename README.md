@@ -116,9 +116,9 @@ match an included digest
 name for a non-array digest)
 
 ```go
-func (s *SdJwt) Head() map[string]any
+func (s *SdJwt).Head() map[string]any
 ```
-Head returns the head of the JWT
+Head returns the.Head of the JWT
 
 ```go
 func (s *SdJwt) Signature() string
