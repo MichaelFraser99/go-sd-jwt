@@ -44,63 +44,44 @@ PointerSlice is a helper method that returns a pointer to the given slice.
 ### Disclosure
 ```go
 type Disclosure struct {
-// Has unexported fields.
+    Salt         string
+    Key          *string
+    Value        any
+    EncodedValue string
 }
 ```
-This object represents a single disclosure in a SD-JWT. Helper
-methods are provided for retrieving the contents
+This object represents a single disclosure in a SD-JWT. The EncodedValue property returns the disclosure string as provided in the original sd jwt
 
-```go
-func (d *Disclosure) ClaimName() *string
-```
-ClaimName returns the claim name of the disclosure
 
-```go
-func (d *Disclosure) ClaimValue() string
-```
-ClaimValue returns the claim value of the disclosure
-
-```go
-func (d *Disclosure) EncodedValue() string
-```
-EncodedValue returns the disclosure as it was listed in the original SD-JWT
-
-```go
-func (d *Disclosure) RawValue() string
-```
-RawValue returns the decoded contents of the disclosure
-
-```go
-func (d *Disclosure) Salt() string
 ```
 Salt returns the salt of the disclosure
 
 ### SdJwt
 ```go
 type SdJwt struct {
-// Has unexported fields.
+    Head        map[string]any
+    Body        map[string]any
+    Signature   string
+    KbJwt       *kbjwt.KbJwt
+    Disclosures []disclosure.Disclosure
 }
 ```
-SdJwt this object represents a valid SD-JWT. Created using the FromToken function
-which performs the required validation. Helper methods are provided for
-retrieving the contents
+SdJwt this object represents a valid SD-JWT. Created using the New or NewFromComponents functions
+which performs the required validation.
 
 ```go
-func FromToken(token string) (*SdJwt, error)
+func New(token string) (*SdJwt, error)
 ```
-FromToken Creates a new SD-JWT from a JWS or JWT format token. The token is
+New Creates a new SD-JWT from a JWT format token. The token is
 validated inline with the SD-JWT specification. If the token is valid,
 a new SdJwt object is returned.
 
 ```go
-func (s *SdJwt) Body() *map[string]any
+func NewFromComponents(protected, payload, signature string, disclosures []string, kbJwt *string) (*SdJwt, error)
 ```
-Body returns the body of the JWT
-
-```go
-func (s *SdJwt) Disclosures() []Disclosure
-```
-Disclosures returns the disclosures of the SD-JWT
+NewFromComponents Creates a new SD-JWT from the individual components. This function
+is designed to cater for the many different permutations of JSON format token.
+If the token is valid, a new SdJwt object is returned.
 
 ```go
 func (s *SdJwt) GetDisclosedClaims() (map[string]any, error)
@@ -115,25 +96,7 @@ match an included digest
 4. The SD-JWT has a disclosure that is malformed for the use (e.g. doesn't contain a claim
 name for a non-array digest)
 
-```go
-func (s *SdJwt) Head() map[string]any
-```
-Head returns the head of the JWT
-
-```go
-func (s *SdJwt) Signature() string
-```
-Signature returns the signature of the provided token used to verify it
-
-```go
-func (s *SdJwt) Token() string
-```
-Token returns the JWT token as it was received
-
 ### Errors
 This package defines the following errors:
 - InvalidToken - The provided token is malformed in some way
-- InvalidSignature - The signature of the token is invalid
-- UnsupportedAlgorithm - The algorithm used to sign the token is not supported
-- InvalidPublicKey - The provided public key is invalid
-- SigningError - An error occurred while signing the token
+- InvalidDisclosure - The provided disclosure is malformed or invalid in some way

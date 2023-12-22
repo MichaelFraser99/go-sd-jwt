@@ -14,3 +14,4 @@ jobs:
       - name: Run unit tests
         run: |
           go test ./... -v
+          make fuzz

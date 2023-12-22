@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"github.com/MichaelFraser99/go-sd-jwt/disclosure"
@@ -113,18 +112,28 @@ func GetDigests(m map[string]any) []any {
 }
 
 func StripSDClaimsFromSlice(input []any) []any {
-	output := make([]any, len(input))
-	for i, v := range input {
+	var output []any
+	for _, v := range input {
 		switch reflect.TypeOf(v).Kind() {
 		case reflect.Map:
-			output[i] = StripSDClaims(v.(map[string]any))
+			strippedValue := StripSDClaims(v.(map[string]any))
+			if strippedValue != nil {
+				output = append(output, strippedValue)
+			}
 		case reflect.Slice:
-			output[i] = StripSDClaimsFromSlice(v.([]any))
+			strippedValue := StripSDClaimsFromSlice(v.([]any))
+			if strippedValue != nil {
+				output = append(output, strippedValue)
+			}
 		default:
-			output[i] = v
+			output = append(output, v)
 		}
 	}
-	return output
+	if len(output) > 0 {
+		return output
+	} else {
+		return nil
+	}
 }
 
 func StripSDClaims(body map[string]any) map[string]any {
@@ -132,18 +141,28 @@ func StripSDClaims(body map[string]any) map[string]any {
 	for k, v := range body {
 		switch reflect.TypeOf(v).Kind() {
 		case reflect.Map:
-			bodyMap[k] = StripSDClaims(v.(map[string]any))
+			strippedValue := StripSDClaims(v.(map[string]any))
+			if strippedValue != nil {
+				bodyMap[k] = strippedValue
+			}
 		case reflect.Slice:
 			if k != "_sd" {
-				bodyMap[k] = StripSDClaimsFromSlice(v.([]any))
+				strippedValue := StripSDClaimsFromSlice(v.([]any))
+				if strippedValue != nil {
+					bodyMap[k] = strippedValue
+				}
 			}
 		default:
-			if k != "_sd_alg" {
+			if k != "_sd_alg" && k != "..." {
 				bodyMap[k] = v
 			}
 		}
 	}
-	return bodyMap
+	if len(bodyMap) > 0 {
+		return bodyMap
+	} else {
+		return nil
+	}
 }
 
 func StringifyDisclosures(disclosures []disclosure.Disclosure) string {
@@ -154,9 +173,10 @@ func StringifyDisclosures(disclosures []disclosure.Disclosure) string {
 		} else {
 			result += " "
 		}
-		result += d.Value.(string) + " "
+		b, _ := json.Marshal(d.Value)
+		result += string(b)
 		if i != len(disclosures)-1 {
-			result += ","
+			result += ", "
 		}
 	}
 	result += "]"
@@ -219,43 +239,6 @@ func CheckForKbJwt(candidate string) *string {
 	}
 
 	return &candidate
-}
-
-func ValidateKbJwt(kbJwt string, sdJwtBody map[string]any) error {
-	kbjc := strings.Split(kbJwt, ".")
-
-	if len(kbjc) != 3 {
-		return errors.New("kb jwt is in an invalid format")
-	}
-
-	//head
-	kbhb, err := base64.RawURLEncoding.DecodeString(kbjc[0])
-	if err != nil {
-		return err
-	}
-	var kbh map[string]any
-	err = json.Unmarshal(kbhb, &kbh)
-	if err != nil {
-		return err
-	}
-
-	//body
-	kbbb, err := base64.RawURLEncoding.DecodeString(kbjc[1])
-	if err != nil {
-		return err
-	}
-	var kbb map[string]any
-	err = json.Unmarshal(kbbb, &kbb)
-	if err != nil {
-		return err
-	}
-
-	//validate kb jwt contents
-	if kbh["typ"] != "kb+jwt" {
-		return errors.New("kb jwt is not of type kb+jwt")
-	}
-
-	return nil
 }
 
 // Pointer is a helper method that returns a pointer to the given value.
