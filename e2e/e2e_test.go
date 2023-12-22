@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -333,7 +334,7 @@ func TestE2E(t *testing.T) {
 		evidence := keyPresent(t, verification, "evidence").([]any)
 		t.Run("validate evidence", func(t *testing.T) {
 			if len(evidence) != 1 {
-				t.Errorf("evidence has wrong length: %d", len(nationalities))
+				t.Errorf("evidence has wrong length: %d", len(evidence))
 			}
 			_, ok := evidence[0].(map[string]any)
 			if !ok {
@@ -389,6 +390,170 @@ func TestE2E(t *testing.T) {
 			}
 			if numberString != "53554554" {
 				t.Errorf("incorrect number value returned: %s", numberString)
+			}
+		})
+	})
+
+	t.Run("we can receive the sd-jwt as a holder and reissue with a subset of disclosures and with key binding", func(t *testing.T) {
+		providedSdJwt, err := go_sd_jwt.New(sdJwtString)
+		if err != nil {
+			t.Fatalf("No error expected: %s", err.Error())
+		}
+
+		allDisclosures := providedSdJwt.Disclosures
+
+		subsetDisclosures := []disclosure.Disclosure{}
+
+		for _, d := range allDisclosures {
+			if d.Key != nil && (*d.Key == "issuer" || *d.Key == "date_of_issuance" || *d.Key == "evidence") {
+				subsetDisclosures = append(subsetDisclosures, d)
+			}
+		}
+
+		providedSdJwt.Disclosures = subsetDisclosures
+
+		nonce := make([]byte, 32)
+		_, err = rand.Read(nonce)
+		if err != nil {
+			t.Fatalf("error generating nonce value: %s", err.Error())
+		}
+
+		err = providedSdJwt.AddKeyBindingJwt(holderSigner, crypto.SHA256, holderSigner.Alg().String(), "https://audience.com", string(nonce))
+		if err != nil {
+			t.Fatalf("error adding kb jwt: %s", err.Error())
+		}
+
+		// a receiver would be able to validate
+		bHead, err := json.Marshal(providedSdJwt.Head)
+		if err != nil {
+			t.Fatalf("error marshalling head as json: %s", err.Error())
+		}
+		b64Head := make([]byte, base64.RawURLEncoding.EncodedLen(len(bHead)))
+		base64.RawURLEncoding.Encode(b64Head, bHead)
+
+		bBody, err := json.Marshal(providedSdJwt.Body)
+		if err != nil {
+			t.Fatalf("error marshalling body as json: %s", err.Error())
+		}
+		b64Body := make([]byte, base64.RawURLEncoding.EncodedLen(len(bBody)))
+		base64.RawURLEncoding.Encode(b64Body, bBody)
+
+		disclosures := make([]string, len(providedSdJwt.Disclosures))
+		for i, d := range providedSdJwt.Disclosures {
+			disclosures[i] = d.EncodedValue
+		}
+
+		finalToken, err := go_sd_jwt.NewFromComponents(string(b64Head), string(b64Body), providedSdJwt.Signature, disclosures, &providedSdJwt.KbJwt.Token)
+		if err != nil {
+			t.Fatalf("error parsing final token: %s", err.Error())
+		}
+		finalDisclosedClaims, err := finalToken.GetDisclosedClaims()
+		if err != nil {
+			t.Fatalf("error extracting disclosed claims from final token: %s", err.Error())
+		}
+
+		t.Run("validate disclosed claims", func(t *testing.T) {
+			keyPresent(t, finalDisclosedClaims, "birth_middle_name")
+			keyPresent(t, finalDisclosedClaims, "msisdn")
+			keyPresent(t, finalDisclosedClaims, "salutation")
+			keyPresent(t, finalDisclosedClaims, "cnf")
+			keyPresent(t, finalDisclosedClaims, "verified_claims")
+		})
+
+		cnf := keyPresent(t, finalDisclosedClaims, "cnf").(map[string]any)
+		t.Run("validate cnf", func(t *testing.T) {
+			keyPresent(t, cnf, "e")
+			keyPresent(t, cnf, "kty")
+			keyPresent(t, cnf, "n")
+		})
+
+		verifiedClaims := keyPresent(t, finalDisclosedClaims, "verified_claims").(map[string]any)
+		t.Run("validate verified_claims", func(t *testing.T) {
+			keyPresent(t, verifiedClaims, "claims")
+			keyPresent(t, verifiedClaims, "verification")
+		})
+
+		claims := keyPresent(t, verifiedClaims, "claims").(map[string]any)
+		t.Run("validate claims", func(t *testing.T) {
+			keyPresent(t, claims, "address")
+			keyPresent(t, claims, "birthdate")
+			keyPresent(t, claims, "family_name")
+			keyPresent(t, claims, "given_name")
+			keyPresent(t, claims, "place_of_birth")
+		})
+
+		address := keyPresent(t, claims, "address").(map[string]any)
+		t.Run("validate address", func(t *testing.T) {
+			keyPresent(t, address, "country")
+			keyPresent(t, address, "locality")
+			keyPresent(t, address, "postal_code")
+			keyPresent(t, address, "street_address")
+		})
+
+		placeOfBirth := keyPresent(t, claims, "place_of_birth").(map[string]any)
+		t.Run("validate place_of_birth", func(t *testing.T) {
+			keyPresent(t, placeOfBirth, "country")
+			keyPresent(t, placeOfBirth, "locality")
+		})
+
+		verification := keyPresent(t, verifiedClaims, "verification").(map[string]any)
+		t.Run("validate verification", func(t *testing.T) {
+			keyPresent(t, verification, "evidence")
+			keyPresent(t, verification, "time")
+			keyPresent(t, verification, "trust_framework")
+			keyPresent(t, verification, "verification_process")
+		})
+
+		evidence := keyPresent(t, verification, "evidence").([]any)
+		t.Run("validate evidence", func(t *testing.T) {
+			if len(evidence) != 1 {
+				t.Errorf("evidence has wrong length: %d", len(evidence))
+			}
+			_, ok := evidence[0].(map[string]any)
+			if !ok {
+				t.Error("evidence should have a single map")
+			}
+		})
+
+		evidenceContents := keyPresent(t, verification, "evidence").([]any)[0].(map[string]any)
+		t.Run("validate evidence contents", func(t *testing.T) {
+			keyPresent(t, evidenceContents, "document")
+			keyPresent(t, evidenceContents, "method")
+			keyPresent(t, evidenceContents, "time")
+			keyPresent(t, evidenceContents, "type")
+		})
+
+		document := keyPresent(t, evidenceContents, "document").(map[string]any)
+		t.Run("validate document", func(t *testing.T) {
+			keyNotPresent(t, document, "_sd")
+			keyPresent(t, document, "date_of_expiry")
+			keyPresent(t, document, "type")
+			issuer := keyPresent(t, document, "issuer")
+			dateOfIssuance := keyPresent(t, document, "date_of_issuance")
+			keyNotPresent(t, document, "number")
+
+			//Validate issuer
+			issuerMap, ok := issuer.(map[string]any)
+			if !ok {
+				t.Error("disclosed issuer value should be a map")
+			}
+			if len(issuerMap) != 2 {
+				t.Errorf("issuer key is incorrect length: %d", len(issuerMap))
+			}
+			if issuerMap["name"] != "Stadt Augsburg" {
+				t.Errorf("incorrect name value returned: %s", issuerMap["name"])
+			}
+			if issuerMap["country"] != "DE" {
+				t.Errorf("incorrect country value returned: %s", issuerMap["country"])
+			}
+
+			//Validate date of issuance
+			dateOfIssuanceString, ok := dateOfIssuance.(string)
+			if !ok {
+				t.Error("disclosed date of issuance value should be a string")
+			}
+			if dateOfIssuanceString != "2010-03-23" {
+				t.Errorf("incorrect date of issuance value returned: %s", dateOfIssuanceString)
 			}
 		})
 	})
