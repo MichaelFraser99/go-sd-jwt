@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/MichaelFraser99/go-jose"
+	"github.com/MichaelFraser99/go-jose/jws"
 	"github.com/MichaelFraser99/go-jose/model"
 	e "github.com/MichaelFraser99/go-sd-jwt/internal/error"
 	"testing"
@@ -111,7 +111,7 @@ func FuzzNewFromToken(f *testing.F) {
 }
 
 func NewJwt(t *testing.T, iat int64, typ, aud, nonce, sdhash string) string {
-	signer, err := jose.GetSigner(model.RS256, nil)
+	signer, err := jws.GetSigner(model.RS256, nil)
 	if err != nil {
 		t.Fatalf("Error creating signer: %s", err.Error())
 	}

@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/MichaelFraser99/go-jose"
+	"github.com/MichaelFraser99/go-jose/jws"
 	"github.com/MichaelFraser99/go-jose/model"
 	go_sd_jwt "github.com/MichaelFraser99/go-sd-jwt"
 	"github.com/MichaelFraser99/go-sd-jwt/disclosure"
@@ -541,7 +541,7 @@ func TestSdJwt_AddKeyBindingJwt(t *testing.T) {
 		t.Fatalf("no kb jwt should yet exist")
 	}
 
-	signer, err := jose.GetSigner(model.RS256, &model.Opts{BitSize: 2048})
+	signer, err := jws.GetSigner(model.RS256, &model.Opts{BitSize: 2048})
 	if err != nil {
 		t.Fatalf("failed to get signer %s", err.Error())
 	}
