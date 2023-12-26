@@ -7,7 +7,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/MichaelFraser99/go-jose"
+	"github.com/MichaelFraser99/go-jose/jwk"
+	"github.com/MichaelFraser99/go-jose/jws"
 	"github.com/MichaelFraser99/go-jose/model"
 	go_sd_jwt "github.com/MichaelFraser99/go-sd-jwt"
 	"github.com/MichaelFraser99/go-sd-jwt/disclosure"
@@ -16,20 +17,20 @@ import (
 )
 
 func TestE2E(t *testing.T) {
-	issuerSigner, err := jose.GetSigner(model.RS256, &model.Opts{BitSize: 4096})
+	issuerSigner, err := jws.GetSigner(model.RS256, &model.Opts{BitSize: 4096})
 	if err != nil {
 		t.Fatalf("error creating issuer signer: %s", err.Error())
 	}
-	issuerValidator, err := jose.GetValidator(issuerSigner.Alg(), issuerSigner.Public())
+	issuerValidator, err := jws.GetValidator(issuerSigner.Alg(), issuerSigner.Public())
 	if err != nil {
 		t.Fatalf("error creating issuer validator: %s", err.Error())
 	}
 
-	holderSigner, err := jose.GetSigner(model.RS256, &model.Opts{BitSize: 4096})
+	holderSigner, err := jws.GetSigner(model.RS256, &model.Opts{BitSize: 4096})
 	if err != nil {
 		t.Fatalf("error creating holder signer: %s", err.Error())
 	}
-	holderValidator, err := jose.GetValidator(holderSigner.Alg(), holderSigner.Public())
+	holderValidator, err := jws.GetValidator(holderSigner.Alg(), holderSigner.Public())
 	if err != nil {
 		t.Fatalf("error creating holder validator: %s", err.Error())
 	}
@@ -82,7 +83,10 @@ func TestE2E(t *testing.T) {
 	var sdJwtString string
 
 	t.Run("we can create an SD Jwt as an issuer", func(t *testing.T) {
-		inputData["cnf"] = holderValidator.Jwk()
+		inputData["cnf"], err = jwk.PublicJwk(holderValidator.Public())
+		if err != nil {
+			t.Fatalf("error creating jwk: %s", err.Error())
+		}
 
 		header := map[string]string{
 			"typ": "application/json+sd-jwt",
@@ -168,8 +172,12 @@ func TestE2E(t *testing.T) {
 			nationalitiesDEDisclosure.EncodedValue,
 		)
 	})
+	issuerJwk, err := jwk.PublicJwk(issuerValidator.Public())
+	if err != nil {
+		t.Fatalf("error creating jwk from issuer validatior: %s", err.Error())
+	}
 
-	jwkBytes, err := json.Marshal(issuerValidator.Jwk())
+	jwkBytes, err := json.Marshal(*issuerJwk)
 	if err != nil {
 		t.Fatalf("error creating jwk from validator")
 	}
