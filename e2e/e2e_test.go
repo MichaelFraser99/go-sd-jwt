@@ -426,7 +426,7 @@ func TestE2E(t *testing.T) {
 			t.Fatalf("error generating nonce value: %s", err.Error())
 		}
 
-		err = providedSdJwt.AddKeyBindingJwt(holderSigner, crypto.SHA256, holderSigner.Alg().String(), "https://audience.com", string(nonce))
+		err = providedSdJwt.AddKeyBindingJwt(holderSigner, crypto.SHA256, holderSigner.Alg().String(), "https://audience.com", base64.RawURLEncoding.EncodeToString(nonce))
 		if err != nil {
 			t.Fatalf("error adding kb jwt: %s", err.Error())
 		}

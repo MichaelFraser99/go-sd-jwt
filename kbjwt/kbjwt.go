@@ -13,7 +13,7 @@ type KbJwt struct {
 	Aud    *string `json:"aud"`
 	Nonce  *string `json:"nonce"`
 	SdHash *string `json:"sd_hash"`
-	Token  string
+	Token  string  `json:"-"`
 }
 
 func NewFromToken(token string) (*KbJwt, error) {

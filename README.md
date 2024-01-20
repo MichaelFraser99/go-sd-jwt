@@ -3,7 +3,9 @@ Package go_sd_jwt provides a library for creating and validating SD-JWTs. The
 resulting SdJwt object exposes methods for retrieving the claims and disclosures
 as well as retrieving all disclosed claims in line with the specification.
 
-For more information on SD-JWTs, see the [Selective Disclosure JWTs RFC](https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html)
+For more information on SD-JWTs, see the [Selective Disclosure JWTs Specification](https://datatracker.ietf.org/doc/draft-ietf-oauth-selective-disclosure-jwt/)
+
+Also see: [sdjwt.org](https://sdjwt.org/) for a playground powered by this module
 
 ## Requirements
 - Go 1.21 or higher
@@ -49,12 +51,12 @@ This object represents a single disclosure in a SD-JWT. The EncodedValue propert
 ```go
 func NewFromObject(key string, value any, salt *string) (*Disclosure, error)
 ```
-NewFromObject creates a Disclosure object for the provided key/value pair and optional salt. If no salt provided, a new salt value of 128 bytes is generated
+NewFromObject creates a Disclosure object for the provided key/value pair and optional salt. If no salt provided, a new salt value of 128 bits is generated
 
 ```go
 func NewFromArrayElement(element any, salt *string) (*Disclosure, error)
 ```
-NewFromArrayElement creates a Disclosure object for the provided array element and optional salt. If no salt provided, a new salt value of 128 bytes is generated
+NewFromArrayElement creates a Disclosure object for the provided array element and optional salt. If no salt provided, a new salt value of 128 bits is generated
 
 ```go
 func NewFromDisclosure(disclosure string) (*Disclosure, error)
