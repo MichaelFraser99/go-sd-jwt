@@ -49,12 +49,12 @@ This object represents a single disclosure in a SD-JWT. The EncodedValue propert
 ```go
 func NewFromObject(key string, value any, salt *string) (*Disclosure, error)
 ```
-NewFromObject creates a Disclosure object for the provided key/value pair and optional salt. If no salt provided, a new salt value of 128 bytes is generated
+NewFromObject creates a Disclosure object for the provided key/value pair and optional salt. If no salt provided, a new salt value of 128 bits is generated
 
 ```go
 func NewFromArrayElement(element any, salt *string) (*Disclosure, error)
 ```
-NewFromArrayElement creates a Disclosure object for the provided array element and optional salt. If no salt provided, a new salt value of 128 bytes is generated
+NewFromArrayElement creates a Disclosure object for the provided array element and optional salt. If no salt provided, a new salt value of 128 bits is generated
 
 ```go
 func NewFromDisclosure(disclosure string) (*Disclosure, error)
