@@ -5,6 +5,8 @@ as well as retrieving all disclosed claims in line with the specification.
 
 For more information on SD-JWTs, see the [Selective Disclosure JWTs RFC](https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html)
 
+Also see: [sdjwt.org](https://sdjwt.org/) for a playground powered by this module
+
 ## Requirements
 - Go 1.21 or higher
 
