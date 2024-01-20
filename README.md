@@ -3,7 +3,7 @@ Package go_sd_jwt provides a library for creating and validating SD-JWTs. The
 resulting SdJwt object exposes methods for retrieving the claims and disclosures
 as well as retrieving all disclosed claims in line with the specification.
 
-For more information on SD-JWTs, see the [Selective Disclosure JWTs RFC](https://www.ietf.org/archive/id/draft-ietf-oauth-selective-disclosure-jwt-05.html)
+For more information on SD-JWTs, see the [Selective Disclosure JWTs Specification](https://datatracker.ietf.org/doc/draft-ietf-oauth-selective-disclosure-jwt/)
 
 Also see: [sdjwt.org](https://sdjwt.org/) for a playground powered by this module
 
