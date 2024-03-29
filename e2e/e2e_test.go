@@ -460,6 +460,12 @@ func TestE2E(t *testing.T) {
 			t.Fatalf("error extracting disclosed claims from final token: %s", err.Error())
 		}
 
+		ftString, err := finalToken.Token()
+		if err != nil {
+			t.Fatalf("no error should be thrown")
+		}
+		t.Log(*ftString)
+
 		t.Run("validate disclosed claims", func(t *testing.T) {
 			keyPresent(t, finalDisclosedClaims, "birth_middle_name")
 			keyPresent(t, finalDisclosedClaims, "msisdn")
