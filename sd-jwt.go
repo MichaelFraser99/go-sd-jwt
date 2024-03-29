@@ -59,6 +59,33 @@ func NewFromComponents(protected, payload, signature string, disclosures []strin
 	return validateJwt(token)
 }
 
+// Token This method returns the SD Jwt in its current state, in a token format, as a string
+func (s *SdJwt) Token() (*string, error) {
+	headBytes, err := json.Marshal(s.Head)
+	if err != nil {
+		return nil, err
+	}
+	b64Head := base64.RawURLEncoding.EncodeToString(headBytes)
+	bodyBytes, err := json.Marshal(s.Body)
+	if err != nil {
+		return nil, err
+	}
+	b64Body := base64.RawURLEncoding.EncodeToString(bodyBytes)
+
+	disclosureString := ""
+	for _, d := range s.Disclosures {
+		disclosureString += fmt.Sprintf("%s~", d.EncodedValue)
+	}
+
+	tokenString := fmt.Sprintf("%s.%s.%s~%s", b64Head, b64Body, s.Signature, disclosureString)
+
+	if s.KbJwt != nil {
+		tokenString += s.KbJwt.Token
+	}
+
+	return utils.Pointer(tokenString), nil
+}
+
 // AddKeyBindingJwt This method adds a keybinding jwt signed with the provided signer interface and hash
 // If the provided hash does not match the hash algorithm specified in the SD Jwt (or isn't sha256 if no _sd_alg claim present), an error will be thrown
 // The sd_hash value will be set based off of all disclosures present in the current sd jwt object

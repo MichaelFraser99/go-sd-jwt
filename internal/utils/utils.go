@@ -137,6 +137,7 @@ func StripSDClaimsFromSlice(input []any) []any {
 }
 
 func StripSDClaims(body map[string]any) map[string]any {
+	omit := true
 	bodyMap := make(map[string]any)
 	for k, v := range body {
 		switch reflect.TypeOf(v).Kind() {
@@ -151,6 +152,8 @@ func StripSDClaims(body map[string]any) map[string]any {
 				if strippedValue != nil {
 					bodyMap[k] = strippedValue
 				}
+			} else {
+				omit = false
 			}
 		default:
 			if k != "_sd_alg" && k != "..." {
@@ -158,7 +161,7 @@ func StripSDClaims(body map[string]any) map[string]any {
 			}
 		}
 	}
-	if len(bodyMap) > 0 {
+	if len(bodyMap) > 0 || !omit {
 		return bodyMap
 	} else {
 		return nil

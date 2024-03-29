@@ -108,6 +108,17 @@ match an included digest
 4. The SD-JWT has a disclosure that is malformed for the use (e.g. doesn't contain a claim
 name for a non-array digest)
 
+```go
+func (s *SdJwt) AddKeyBindingJwt(signer crypto.Signer, h crypto.Hash, alg, aud, nonce string) error
+```
+AddKeyBindingJwt signs and adds a key binding jwt to the sd-jwt object
+complete with sd_hash claim for the currently specifed disclosures
+
+```go
+func (s *SdJwt) Token() (*string, error)
+```
+Token returns the current form of the sd-jwt object in string token format
+
 ### Usage
 For an example e2e flow of an SD Jwt see the e2e_test
 Contains examples of:
