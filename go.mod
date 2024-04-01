@@ -3,7 +3,7 @@ module github.com/MichaelFraser99/go-sd-jwt
 go 1.21.5
 
 require (
-	github.com/MichaelFraser99/go-jose v0.6.2
+	github.com/MichaelFraser99/go-jose v0.9.0
 	github.com/stretchr/testify v1.8.4
 )
 
