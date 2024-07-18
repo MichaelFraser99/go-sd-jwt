@@ -206,10 +206,6 @@ func ValidateDigests(body map[string]any) error {
 func ValidateDisclosures(disclosures []string) ([]disclosure.Disclosure, error) {
 	var disclosureArray []disclosure.Disclosure
 
-	if len(disclosures) == 0 {
-		return nil, errors.New("token has no specified disclosures")
-	}
-
 	for _, d := range disclosures {
 		count := 0
 		if d != "" {
