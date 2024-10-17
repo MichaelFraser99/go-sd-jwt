@@ -6,14 +6,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
+	"testing"
+
 	"github.com/MichaelFraser99/go-jose/jws"
 	"github.com/MichaelFraser99/go-jose/model"
 	go_sd_jwt "github.com/MichaelFraser99/go-sd-jwt"
 	"github.com/MichaelFraser99/go-sd-jwt/disclosure"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"os"
-	"testing"
 )
 
 func TestMain(m *testing.M) {
@@ -652,4 +653,21 @@ func TestNew_AllDuplicateDigestScenarios(t *testing.T) {
 			t.Error("error message is not correct: ", err.Error())
 		}
 	}
+}
+
+func TestSDJwtWithoutSD(t *testing.T) {
+	testJwt := "eyJ0eXAiOiJzZCtqd3QiLCJhbGciOiJFUzI1NiJ9.eyJmaXJzdG5hbWUiOiJKb2huIiwibGFzdG5hbWUiOiJEb2UiLCJzc24iOiIxMjMtNDUtNjc4OSIsImlkIjoiMTIzNCIsIl9zZF9hbGciOiJTSEEtMjU2In0.sUA_aYeA4YNQ1Paxna30VLAce1KdxvYMPEIduCwSD6X_Z56ZrBY5fbUBM5JVQ3vceS86CCghr8wkemdhQYRdfA~"
+	sdJwt, err := go_sd_jwt.New(testJwt)
+
+	if err != nil {
+		t.Log("Token not parseable")
+	}
+
+	_, err = sdJwt.GetDisclosedClaims()
+
+	if err != nil {
+		t.Log("Token cant survive without Selective Discloures")
+		t.Error("The token has empty selective disclosure but fails in parsing.")
+	}
+
 }
