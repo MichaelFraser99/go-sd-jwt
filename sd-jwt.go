@@ -12,14 +12,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/MichaelFraser99/go-sd-jwt/disclosure"
-	e "github.com/MichaelFraser99/go-sd-jwt/internal/error"
-	"github.com/MichaelFraser99/go-sd-jwt/internal/utils"
-	"github.com/MichaelFraser99/go-sd-jwt/kbjwt"
 	"hash"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/MichaelFraser99/go-sd-jwt/disclosure"
+	e "github.com/MichaelFraser99/go-sd-jwt/internal/error"
+	"github.com/MichaelFraser99/go-sd-jwt/internal/utils"
+	"github.com/MichaelFraser99/go-sd-jwt/kbjwt"
 )
 
 // SdJwt this object represents a valid SD-JWT. Created using the FromToken function which performs the required validation.
@@ -247,9 +248,10 @@ func (s *SdJwt) GetDisclosedClaims() (map[string]any, error) {
 			h.Reset()
 		}
 
-		if len(indexesFound) == 0 {
+		if len(indexesFound) == 0 && len(disclosuresToCheck) > 0 {
 			return nil, fmt.Errorf("no matching digest found for: %v", utils.StringifyDisclosures(disclosuresToCheck))
 		}
+
 		slices.Sort(indexesFound)
 		slices.Reverse(indexesFound)
 		for _, i := range indexesFound {
