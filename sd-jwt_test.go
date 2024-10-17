@@ -37,7 +37,7 @@ func TestNew(t *testing.T) {
 				if sdJwt == nil {
 					t.Fatal("sdJwt should not be nil")
 				} else {
-					if sdJwt.Head == nil || len(sdJwt.Head) == 0 {
+					if len(sdJwt.Head) == 0 {
 						t.Error("head should not be empty")
 					}
 					if sdJwt.Body == nil {
@@ -46,7 +46,7 @@ func TestNew(t *testing.T) {
 					if sdJwt.Signature == "" {
 						t.Error("signature should not be empty")
 					}
-					if sdJwt.Disclosures == nil || len(sdJwt.Disclosures) == 0 {
+					if len(sdJwt.Disclosures) == 0 {
 						t.Error("disclosures should not be empty")
 					}
 					if len(sdJwt.Disclosures) != 10 {
@@ -93,7 +93,7 @@ func TestNew(t *testing.T) {
 				if sdJwt == nil {
 					t.Fatal("sdJwt should not be nil")
 				} else {
-					if sdJwt.Head == nil || len(sdJwt.Head) == 0 {
+					if len(sdJwt.Head) == 0 {
 						t.Error("Head should not be empty")
 					}
 					if sdJwt.Body == nil {
@@ -102,7 +102,7 @@ func TestNew(t *testing.T) {
 					if sdJwt.Signature == "" {
 						t.Error("signature should not be empty")
 					}
-					if sdJwt.Disclosures == nil || len(sdJwt.Disclosures) == 0 {
+					if len(sdJwt.Disclosures) == 0 {
 						t.Error("disclosures should not be empty")
 					}
 					if len(sdJwt.Disclosures) != 2 {
@@ -140,7 +140,7 @@ func TestNew(t *testing.T) {
 				if sdJwt == nil {
 					t.Error("sdJwt should not be nil")
 				} else {
-					if sdJwt.Head == nil || len(sdJwt.Head) == 0 {
+					if len(sdJwt.Head) == 0 {
 						t.Error("head should not be empty")
 					}
 					if sdJwt.Body == nil {
@@ -149,7 +149,7 @@ func TestNew(t *testing.T) {
 					if sdJwt.Signature == "" {
 						t.Error("signature should not be empty")
 					}
-					if sdJwt.Disclosures == nil || len(sdJwt.Disclosures) == 0 {
+					if len(sdJwt.Disclosures) == 0 {
 						t.Error("disclosures should not be empty")
 					}
 					if len(sdJwt.Disclosures) != 6 {
@@ -213,7 +213,7 @@ func TestNew(t *testing.T) {
 				if sdJwt == nil {
 					t.Fatal("sdJwt should not be nil")
 				} else {
-					if sdJwt.Head == nil || len(sdJwt.Head) == 0 {
+					if len(sdJwt.Head) == 0 {
 						t.Error("head should not be empty")
 					}
 					if sdJwt.Body == nil {
@@ -222,7 +222,7 @@ func TestNew(t *testing.T) {
 					if sdJwt.Signature == "" {
 						t.Error("signature should not be empty")
 					}
-					if sdJwt.Disclosures == nil || len(sdJwt.Disclosures) == 0 {
+					if len(sdJwt.Disclosures) == 0 {
 						t.Error("disclosures should not be empty")
 					}
 					if len(sdJwt.Disclosures) != 4 {
@@ -275,7 +275,7 @@ func TestNew(t *testing.T) {
 				if sdJwt == nil {
 					t.Fatal("sdJwt should not be nil")
 				} else {
-					if sdJwt.Head == nil || len(sdJwt.Head) == 0 {
+					if len(sdJwt.Head) == 0 {
 						t.Error("head should not be empty")
 					}
 					if sdJwt.Body == nil {
@@ -284,7 +284,7 @@ func TestNew(t *testing.T) {
 					if sdJwt.Signature == "" {
 						t.Error("signature should not be empty")
 					}
-					if sdJwt.Disclosures == nil || len(sdJwt.Disclosures) == 0 {
+					if len(sdJwt.Disclosures) == 0 {
 						t.Error("disclosures should not be empty")
 					}
 					if len(sdJwt.Disclosures) != 1 {
@@ -319,7 +319,7 @@ func TestNew(t *testing.T) {
 				if sdJwt == nil {
 					t.Fatal("sdJwt should not be nil")
 				} else {
-					if sdJwt.Head == nil || len(sdJwt.Head) == 0 {
+					if len(sdJwt.Head) == 0 {
 						t.Error("head should not be empty")
 					}
 					if sdJwt.Body == nil {
@@ -328,7 +328,7 @@ func TestNew(t *testing.T) {
 					if sdJwt.Signature == "" {
 						t.Error("signature should not be empty")
 					}
-					if sdJwt.Disclosures == nil || len(sdJwt.Disclosures) == 0 {
+					if len(sdJwt.Disclosures) == 0 {
 						t.Error("disclosures should not be empty")
 					}
 					if len(sdJwt.Disclosures) != 4 {
@@ -498,7 +498,7 @@ func TestNewFromComponentsKbJwt(t *testing.T) {
 	if sdJwt == nil {
 		t.Fatal("sdJwt should not be nil")
 	} else {
-		if sdJwt.Head == nil || len(sdJwt.Head) == 0 {
+		if len(sdJwt.Head) == 0 {
 			t.Error("head should not be empty")
 		}
 		if sdJwt.Body == nil {
@@ -507,7 +507,7 @@ func TestNewFromComponentsKbJwt(t *testing.T) {
 		if sdJwt.Signature == "" {
 			t.Error("signature should not be empty")
 		}
-		if sdJwt.Disclosures == nil || len(sdJwt.Disclosures) == 0 {
+		if len(sdJwt.Disclosures) == 0 {
 			t.Error("disclosures should not be empty")
 		}
 		if len(sdJwt.Disclosures) != 4 {
@@ -660,14 +660,13 @@ func TestSDJwtWithoutSD(t *testing.T) {
 	sdJwt, err := go_sd_jwt.New(testJwt)
 
 	if err != nil {
-		t.Log("Token not parseable")
+		t.Fatalf("Token not parseable: %s", err.Error())
 	}
 
 	_, err = sdJwt.GetDisclosedClaims()
 
 	if err != nil {
-		t.Log("Token cant survive without Selective Discloures")
-		t.Error("The token has empty selective disclosure but fails in parsing.")
+		t.Log("Token cant survive without Selective Disclosures")
+		t.Fatalf("The token has empty selective disclosure but fails in parsing: %s", err.Error())
 	}
-
 }
