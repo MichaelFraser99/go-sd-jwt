@@ -103,7 +103,7 @@ func FuzzNewFromToken(f *testing.F) {
 				t.Error("Incorrect token value included on return")
 			}
 		} else {
-			if !errors.Is(err, e.InvalidToken) {
+			if !errors.Is(err, e.ErrInvalidToken) {
 				t.Errorf("Unexpected error type returned: %s", err.Error())
 			}
 		}

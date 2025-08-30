@@ -32,7 +32,7 @@ func (d *Disclosure) Hash(hash hash.Hash) []byte {
 
 func NewFromObject(key string, value any, salt *string) (*Disclosure, error) {
 	if key == "" || key == "_sd" || key == "..." {
-		return nil, fmt.Errorf("%winvalid key value provided, must not be empty, '_sd', or '...'", e.InvalidDisclosure)
+		return nil, fmt.Errorf("%winvalid key value provided, must not be empty, '_sd', or '...'", e.ErrInvalidDisclosure)
 	}
 
 	var saltValue string
@@ -102,13 +102,13 @@ func NewFromDisclosure(disclosure string) (*Disclosure, error) {
 
 	decoded, err := base64.RawURLEncoding.DecodeString(disclosure)
 	if err != nil {
-		return nil, fmt.Errorf("%werror base64url decoding provided disclosure: %s", e.InvalidDisclosure, err.Error())
+		return nil, fmt.Errorf("%werror base64url decoding provided disclosure: %s", e.ErrInvalidDisclosure, err.Error())
 	}
 
 	var dArray []any
 	err = json.Unmarshal(decoded, &dArray)
 	if err != nil {
-		return nil, fmt.Errorf("%werror parsing decoded disclosure as array: %s", e.InvalidDisclosure, err.Error())
+		return nil, fmt.Errorf("%werror parsing decoded disclosure as array: %s", e.ErrInvalidDisclosure, err.Error())
 	}
 
 	if len(dArray) == 2 {
@@ -119,7 +119,7 @@ func NewFromDisclosure(disclosure string) (*Disclosure, error) {
 		d.Key = String(dArray[1].(string))
 		d.Value = dArray[2]
 	} else {
-		return nil, fmt.Errorf("%winvalid disclosure contents: %s", e.InvalidDisclosure, string(decoded))
+		return nil, fmt.Errorf("%winvalid disclosure contents: %s", e.ErrInvalidDisclosure, string(decoded))
 	}
 
 	return d, nil
