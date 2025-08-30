@@ -49,9 +49,9 @@ func New(token string) (*SdJwt, error) {
 // If a kb-jwt is included, the contents of this too will be validated.
 // This function is designed to cater for the much more free-form JSON serialization options on offer
 func NewFromComponents(protected, payload, signature string, disclosures []string, kbJwt *string) (*SdJwt, error) {
-	token := fmt.Sprintf("%s.%s.%s", protected, payload, signature)
+	token := fmt.Sprintf("%s.%s.%s~", protected, payload, signature)
 	if len(disclosures) > 0 {
-		token = fmt.Sprintf("%s~%s~", token, strings.Join(disclosures, "~"))
+		token = fmt.Sprintf("%s%s~", token, strings.Join(disclosures, "~"))
 	}
 	if kbJwt != nil {
 		token = fmt.Sprintf("%s%s", token, *kbJwt)
@@ -272,24 +272,24 @@ func validateJwt(token string) (*SdJwt, error) {
 
 	sections := strings.Split(token, "~")
 	if len(sections) < 2 {
-		return nil, fmt.Errorf("%wtoken has no specified disclosures", e.InvalidToken)
+		return nil, fmt.Errorf("%wtoken has no specified disclosures", e.ErrInvalidToken)
 	}
 
 	tokenSections := strings.Split(sections[0], ".")
 
 	if len(tokenSections) != 3 {
-		return nil, fmt.Errorf("%wtoken is not a valid JWT", e.InvalidToken)
+		return nil, fmt.Errorf("%wtoken is not a valid JWT", e.ErrInvalidToken)
 	}
 
 	jwtHead := map[string]any{}
 	hb, err := base64.RawURLEncoding.DecodeString(tokenSections[0])
 	if err != nil {
-		return nil, fmt.Errorf("%wfailed to decode header: %s", e.InvalidToken, err.Error())
+		return nil, fmt.Errorf("%wfailed to decode header: %s", e.ErrInvalidToken, err.Error())
 	}
 
 	err = json.Unmarshal(hb, &jwtHead)
 	if err != nil {
-		return nil, fmt.Errorf("%wfailed to json parse decoded header: %s", e.InvalidToken, err.Error())
+		return nil, fmt.Errorf("%wfailed to json parse decoded header: %s", e.ErrInvalidToken, err.Error())
 	}
 
 	sdJwt.Head = jwtHead
@@ -300,7 +300,7 @@ func validateJwt(token string) (*SdJwt, error) {
 		kbJwt := utils.CheckForKbJwt(sections[len(sections)-1])
 
 		if kbJwt == nil {
-			return nil, fmt.Errorf("%wif no kb-jwt is provided, the last disclosure must be followed by a ~", e.InvalidToken)
+			return nil, fmt.Errorf("%wif no kb-jwt is provided, the last disclosure must be followed by a ~", e.ErrInvalidToken)
 		}
 
 		sections = sections[:len(sections)-1]
@@ -315,24 +315,24 @@ func validateJwt(token string) (*SdJwt, error) {
 
 	disclosures, err := utils.ValidateDisclosures(sections[1:])
 	if err != nil {
-		return nil, fmt.Errorf("%wfailed to validate disclosures: %s", e.InvalidToken, err.Error())
+		return nil, fmt.Errorf("%wfailed to validate disclosures: %s", e.ErrInvalidToken, err.Error())
 	}
 	sdJwt.Disclosures = disclosures
 
 	b, err := base64.RawURLEncoding.DecodeString(tokenSections[1])
 	if err != nil {
-		return nil, fmt.Errorf("%wfailed to decode payload: %s", e.InvalidToken, err.Error())
+		return nil, fmt.Errorf("%wfailed to decode payload: %s", e.ErrInvalidToken, err.Error())
 	}
 
 	var m map[string]any
 	err = json.Unmarshal(b, &m)
 	if err != nil {
-		return nil, fmt.Errorf("%wfailed to json parse decoded payload: %s", e.InvalidToken, err.Error())
+		return nil, fmt.Errorf("%wfailed to json parse decoded payload: %s", e.ErrInvalidToken, err.Error())
 	}
 
 	err = utils.ValidateDigests(m)
 	if err != nil {
-		return nil, fmt.Errorf("%wfailed to validate digests: %s", e.InvalidToken, err.Error())
+		return nil, fmt.Errorf("%wfailed to validate digests: %s", e.ErrInvalidToken, err.Error())
 	}
 
 	sdJwt.Body = m
@@ -361,7 +361,7 @@ func validateJwt(token string) (*SdJwt, error) {
 		base64.RawURLEncoding.Encode(b64Ht, hashedToken)
 
 		if string(b64Ht) != *sdJwt.KbJwt.SdHash {
-			return nil, fmt.Errorf("%wsd hash validation failed: calculated hash %s does not equal provided hash %s", e.InvalidToken, string(b64Ht), *sdJwt.KbJwt.SdHash)
+			return nil, fmt.Errorf("%wsd hash validation failed: calculated hash %s does not equal provided hash %s", e.ErrInvalidToken, string(b64Ht), *sdJwt.KbJwt.SdHash)
 		}
 	}
 

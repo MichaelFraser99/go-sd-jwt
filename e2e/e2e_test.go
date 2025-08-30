@@ -7,13 +7,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"runtime"
+	"testing"
+
 	"github.com/MichaelFraser99/go-jose/jwk"
 	"github.com/MichaelFraser99/go-jose/jws"
 	"github.com/MichaelFraser99/go-jose/model"
 	go_sd_jwt "github.com/MichaelFraser99/go-sd-jwt"
 	"github.com/MichaelFraser99/go-sd-jwt/disclosure"
-	"runtime"
-	"testing"
 )
 
 func TestE2E(t *testing.T) {
@@ -570,6 +571,558 @@ func TestE2E(t *testing.T) {
 				t.Errorf("incorrect date of issuance value returned: %s", dateOfIssuanceString)
 			}
 		})
+	})
+}
+
+func TestE2E_NoDisclosures(t *testing.T) {
+	issuerSigner, err := jws.GetSigner(model.RS256, &model.Opts{BitSize: 4096})
+	if err != nil {
+		t.Fatalf("error creating issuer signer: %s", err.Error())
+	}
+	issuerValidator, err := jws.GetValidator(issuerSigner.Alg(), issuerSigner.Public())
+	if err != nil {
+		t.Fatalf("error creating issuer validator: %s", err.Error())
+	}
+
+	holderSigner, err := jws.GetSigner(model.RS256, &model.Opts{BitSize: 4096})
+	if err != nil {
+		t.Fatalf("error creating holder signer: %s", err.Error())
+	}
+	holderValidator, err := jws.GetValidator(holderSigner.Alg(), holderSigner.Public())
+	if err != nil {
+		t.Fatalf("error creating holder validator: %s", err.Error())
+	}
+
+	inputData := map[string]any{
+		"birth_middle_name": "Timotheus",
+		"salutation":        "Dr.",
+		"msisdn":            "49123456789",
+	}
+	var sdJwtString string
+
+	t.Run("we can create an SD Jwt as an issuer", func(t *testing.T) {
+		inputData["cnf"], err = jwk.PublicJwk(holderValidator.Public())
+		if err != nil {
+			t.Fatalf("error creating jwk: %s", err.Error())
+		}
+
+		header := map[string]string{
+			"typ": "application/json+sd-jwt",
+			"alg": issuerSigner.Alg().String(),
+		}
+
+		headerBytes, err := json.Marshal(header)
+		if err != nil {
+			t.Fatalf("error marshalling header as bytes: %s", err.Error())
+		}
+		bodyBytes, err := json.Marshal(inputData)
+		if err != nil {
+			t.Fatalf("error marshalling body as bytes: %s", err.Error())
+		}
+
+		b64Header := make([]byte, base64.RawURLEncoding.EncodedLen(len(headerBytes)))
+		base64.RawURLEncoding.Encode(b64Header, headerBytes)
+		b64Body := make([]byte, base64.RawURLEncoding.EncodedLen(len(bodyBytes)))
+		base64.RawURLEncoding.Encode(b64Body, bodyBytes)
+
+		jwt := fmt.Sprintf("%s.%s", string(b64Header), string(b64Body))
+
+		signature, err := issuerSigner.Sign(rand.Reader, []byte(jwt), nil)
+		if err != nil {
+			t.Fatalf("error when signing provided jwt: %s", err.Error())
+		}
+		b64Signature := make([]byte, base64.RawURLEncoding.EncodedLen(len(signature)))
+		base64.RawURLEncoding.Encode(b64Signature, signature)
+
+		sdJwtString = fmt.Sprintf("%s.%s~", jwt, string(b64Signature))
+	})
+	issuerJwk, err := jwk.PublicJwk(issuerValidator.Public())
+	if err != nil {
+		t.Fatalf("error creating jwk from issuer validatior: %s", err.Error())
+	}
+
+	jwkBytes, err := json.Marshal(*issuerJwk)
+	if err != nil {
+		t.Fatalf("error creating jwk from validator")
+	}
+
+	t.Log(sdJwtString)
+	t.Log(string(jwkBytes))
+
+	var sdJwt *go_sd_jwt.SdJwt
+	var disclosedClaims map[string]any
+	t.Run("we can create an sd jwt object from the newly created sd jwt string", func(t *testing.T) {
+		sdJwt, err = go_sd_jwt.New(sdJwtString)
+		if err != nil {
+			t.Fatalf("error creating sd jwt object from created sd jwt string: %s", err.Error())
+		}
+		disclosedClaims, err = sdJwt.GetDisclosedClaims()
+		if err != nil {
+			t.Fatalf("error disclosing claims: %s", err.Error())
+		}
+
+		body := sdJwt.Body
+
+		t.Run("validate body", func(t *testing.T) {
+			keyPresent(t, body, "birth_middle_name")
+			keyPresent(t, body, "msisdn")
+			keyPresent(t, body, "salutation")
+			keyPresent(t, body, "cnf")
+		})
+
+		cnf := keyPresent(t, body, "cnf").(map[string]any)
+		t.Run("validate cnf", func(t *testing.T) {
+			keyPresent(t, cnf, "e")
+			keyPresent(t, cnf, "kty")
+			keyPresent(t, cnf, "n")
+		})
+	})
+
+	t.Run("we can validate the disclosed claims from our SdJwt", func(t *testing.T) {
+		t.Run("validate disclosed claims", func(t *testing.T) {
+			keyPresent(t, disclosedClaims, "birth_middle_name")
+			keyPresent(t, disclosedClaims, "msisdn")
+			keyPresent(t, disclosedClaims, "salutation")
+			keyPresent(t, disclosedClaims, "cnf")
+		})
+
+		cnf := keyPresent(t, disclosedClaims, "cnf").(map[string]any)
+		t.Run("validate cnf", func(t *testing.T) {
+			keyPresent(t, cnf, "e")
+			keyPresent(t, cnf, "kty")
+			keyPresent(t, cnf, "n")
+		})
+	})
+
+	t.Run("we can receive the sd-jwt as a holder and reissue with a subset of disclosures and with key binding", func(t *testing.T) {
+		providedSdJwt, err := go_sd_jwt.New(sdJwtString)
+		if err != nil {
+			t.Fatalf("No error expected: %s", err.Error())
+		}
+
+		nonce := make([]byte, 32)
+		_, err = rand.Read(nonce)
+		if err != nil {
+			t.Fatalf("error generating nonce value: %s", err.Error())
+		}
+
+		err = providedSdJwt.AddKeyBindingJwt(holderSigner, crypto.SHA256, holderSigner.Alg().String(), "https://audience.com", base64.RawURLEncoding.EncodeToString(nonce))
+		if err != nil {
+			t.Fatalf("error adding kb jwt: %s", err.Error())
+		}
+
+		// a receiver would be able to validate
+		bHead, err := json.Marshal(providedSdJwt.Head)
+		if err != nil {
+			t.Fatalf("error marshalling head as json: %s", err.Error())
+		}
+		b64Head := make([]byte, base64.RawURLEncoding.EncodedLen(len(bHead)))
+		base64.RawURLEncoding.Encode(b64Head, bHead)
+
+		bBody, err := json.Marshal(providedSdJwt.Body)
+		if err != nil {
+			t.Fatalf("error marshalling body as json: %s", err.Error())
+		}
+		b64Body := make([]byte, base64.RawURLEncoding.EncodedLen(len(bBody)))
+		base64.RawURLEncoding.Encode(b64Body, bBody)
+
+		finalToken, err := go_sd_jwt.NewFromComponents(string(b64Head), string(b64Body), providedSdJwt.Signature, nil, &providedSdJwt.KbJwt.Token)
+		if err != nil {
+			t.Fatalf("error parsing final token: %s", err.Error())
+		}
+		finalDisclosedClaims, err := finalToken.GetDisclosedClaims()
+		if err != nil {
+			t.Fatalf("error extracting disclosed claims from final token: %s", err.Error())
+		}
+
+		ftString, err := finalToken.Token()
+		if err != nil {
+			t.Fatalf("no error should be thrown")
+		}
+		t.Log(*ftString)
+
+		t.Run("validate disclosed claims", func(t *testing.T) {
+			keyPresent(t, finalDisclosedClaims, "birth_middle_name")
+			keyPresent(t, finalDisclosedClaims, "msisdn")
+			keyPresent(t, finalDisclosedClaims, "salutation")
+			keyPresent(t, finalDisclosedClaims, "cnf")
+		})
+
+		cnf := keyPresent(t, finalDisclosedClaims, "cnf").(map[string]any)
+		t.Run("validate cnf", func(t *testing.T) {
+			keyPresent(t, cnf, "e")
+			keyPresent(t, cnf, "kty")
+			keyPresent(t, cnf, "n")
+		})
+	})
+}
+
+func TestE2E_NoTopLevelSdClaim(t *testing.T) {
+	issuerSigner, err := jws.GetSigner(model.RS256, &model.Opts{BitSize: 4096})
+	if err != nil {
+		t.Fatalf("error creating issuer signer: %s", err.Error())
+	}
+	issuerValidator, err := jws.GetValidator(issuerSigner.Alg(), issuerSigner.Public())
+	if err != nil {
+		t.Fatalf("error creating issuer validator: %s", err.Error())
+	}
+
+	holderSigner, err := jws.GetSigner(model.RS256, &model.Opts{BitSize: 4096})
+	if err != nil {
+		t.Fatalf("error creating holder signer: %s", err.Error())
+	}
+	holderValidator, err := jws.GetValidator(holderSigner.Alg(), holderSigner.Public())
+	if err != nil {
+		t.Fatalf("error creating holder validator: %s", err.Error())
+	}
+
+	inputData := map[string]any{
+		"verified_claims": map[string]any{
+			"claims": map[string]any{
+				"given_name":    "Max",
+				"family_name":   "Müller",
+				"nationalities": []any{"DE"},
+				"birthdate":     "1956-01-28",
+				"address": map[string]any{
+					"locality":       "Maxstadt",
+					"postal_code":    "12344",
+					"country":        "DE",
+					"street_address": "Weidenstraße 22",
+				},
+				"undisclosed": map[string]any{
+					"_sd": []any{},
+				},
+			},
+		},
+		"birth_middle_name": "Timotheus",
+		"salutation":        "Dr.",
+		"msisdn":            "49123456789",
+	}
+	var sdJwtString string
+
+	t.Run("we can create an SD Jwt as an issuer", func(t *testing.T) {
+		inputData["cnf"], err = jwk.PublicJwk(holderValidator.Public())
+		if err != nil {
+			t.Fatalf("error creating jwk: %s", err.Error())
+		}
+
+		header := map[string]string{
+			"typ": "application/json+sd-jwt",
+			"alg": issuerSigner.Alg().String(),
+		}
+
+		// Create address disclosures
+		d1, err := disclosure.NewFromObject("locality", inputData["verified_claims"].(map[string]any)["claims"].(map[string]any)["address"].(map[string]any)["locality"], nil)
+		if err != nil {
+			t.Fatalf("error creating disclosure from object: %s", err.Error())
+		}
+		delete(inputData["verified_claims"].(map[string]any)["claims"].(map[string]any)["address"].(map[string]any), "locality")
+
+		d2, err := disclosure.NewFromObject("postal_code", inputData["verified_claims"].(map[string]any)["claims"].(map[string]any)["address"].(map[string]any)["postal_code"], nil)
+		if err != nil {
+			t.Fatalf("error creating disclosure from object: %s", err.Error())
+		}
+		delete(inputData["verified_claims"].(map[string]any)["claims"].(map[string]any)["address"].(map[string]any), "postal_code")
+
+		d3, err := disclosure.NewFromObject("country", inputData["verified_claims"].(map[string]any)["claims"].(map[string]any)["address"].(map[string]any)["country"], nil)
+		if err != nil {
+			t.Fatalf("error creating disclosure from object: %s", err.Error())
+		}
+		delete(inputData["verified_claims"].(map[string]any)["claims"].(map[string]any)["address"].(map[string]any), "country")
+
+		d4, err := disclosure.NewFromObject("street_address", inputData["verified_claims"].(map[string]any)["claims"].(map[string]any)["address"].(map[string]any)["street_address"], nil)
+		if err != nil {
+			t.Fatalf("error creating disclosure from object: %s", err.Error())
+		}
+		delete(inputData["verified_claims"].(map[string]any)["claims"].(map[string]any)["address"].(map[string]any), "street_address")
+
+		// Add disclosures to array
+		inputData["verified_claims"].(map[string]any)["claims"].(map[string]any)["address"].(map[string]any)["_sd"] = []string{
+			string(d1.Hash(sha256.New())),
+			string(d2.Hash(sha256.New())),
+			string(d3.Hash(sha256.New())),
+			string(d4.Hash(sha256.New())),
+		}
+
+		headerBytes, err := json.Marshal(header)
+		if err != nil {
+			t.Fatalf("error marshalling header as bytes: %s", err.Error())
+		}
+		bodyBytes, err := json.Marshal(inputData)
+		if err != nil {
+			t.Fatalf("error marshalling body as bytes: %s", err.Error())
+		}
+
+		b64Header := make([]byte, base64.RawURLEncoding.EncodedLen(len(headerBytes)))
+		base64.RawURLEncoding.Encode(b64Header, headerBytes)
+		b64Body := make([]byte, base64.RawURLEncoding.EncodedLen(len(bodyBytes)))
+		base64.RawURLEncoding.Encode(b64Body, bodyBytes)
+
+		jwt := fmt.Sprintf("%s.%s", string(b64Header), string(b64Body))
+
+		signature, err := issuerSigner.Sign(rand.Reader, []byte(jwt), nil)
+		if err != nil {
+			t.Fatalf("error when signing provided jwt: %s", err.Error())
+		}
+		b64Signature := make([]byte, base64.RawURLEncoding.EncodedLen(len(signature)))
+		base64.RawURLEncoding.Encode(b64Signature, signature)
+
+		jwt = fmt.Sprintf("%s.%s", jwt, string(b64Signature))
+		sdJwtString = fmt.Sprintf("%s~%s~%s~%s~%s~", jwt,
+			d1.EncodedValue,
+			d2.EncodedValue,
+			d3.EncodedValue,
+			d4.EncodedValue,
+		)
+	})
+	issuerJwk, err := jwk.PublicJwk(issuerValidator.Public())
+	if err != nil {
+		t.Fatalf("error creating jwk from issuer validatior: %s", err.Error())
+	}
+
+	jwkBytes, err := json.Marshal(*issuerJwk)
+	if err != nil {
+		t.Fatalf("error creating jwk from validator")
+	}
+
+	t.Log(sdJwtString)
+	t.Log(string(jwkBytes))
+
+	var sdJwt *go_sd_jwt.SdJwt
+	var disclosedClaims map[string]any
+	t.Run("we can create an sd jwt object from the newly created sd jwt string", func(t *testing.T) {
+		sdJwt, err = go_sd_jwt.New(sdJwtString)
+		if err != nil {
+			t.Fatalf("error creating sd jwt object from created sd jwt string: %s", err.Error())
+		}
+		disclosedClaims, err = sdJwt.GetDisclosedClaims()
+		if err != nil {
+			t.Fatalf("error disclosing claims: %s", err.Error())
+		}
+
+		body := sdJwt.Body
+
+		t.Run("validate body", func(t *testing.T) {
+			keyPresent(t, body, "birth_middle_name")
+			keyPresent(t, body, "msisdn")
+			keyPresent(t, body, "salutation")
+			keyPresent(t, body, "cnf")
+			keyPresent(t, body, "verified_claims")
+		})
+
+		cnf := keyPresent(t, body, "cnf").(map[string]any)
+		t.Run("validate cnf", func(t *testing.T) {
+			keyPresent(t, cnf, "e")
+			keyPresent(t, cnf, "kty")
+			keyPresent(t, cnf, "n")
+		})
+
+		verifiedClaims := keyPresent(t, body, "verified_claims").(map[string]any)
+		t.Run("validate verified_claims", func(t *testing.T) {
+			keyPresent(t, verifiedClaims, "claims")
+		})
+
+		claims := keyPresent(t, verifiedClaims, "claims").(map[string]any)
+		t.Run("validate claims", func(t *testing.T) {
+			keyPresent(t, claims, "address")
+			keyPresent(t, claims, "undisclosed")
+			keyPresent(t, claims, "birthdate")
+			keyPresent(t, claims, "family_name")
+			keyPresent(t, claims, "given_name")
+			keyPresent(t, claims, "nationalities")
+		})
+
+		address := keyPresent(t, claims, "address").(map[string]any)
+		t.Run("validate address", func(t *testing.T) {
+			keyNotPresent(t, address, "country")
+			keyNotPresent(t, address, "locality")
+			keyNotPresent(t, address, "postal_code")
+			keyNotPresent(t, address, "street_address")
+		})
+
+		undisclosed := keyPresent(t, claims, "undisclosed").(map[string]any)
+		t.Run("validate undisclosed", func(t *testing.T) {
+			keyPresent(t, undisclosed, "_sd")
+			if len(undisclosed["_sd"].([]any)) != 0 {
+				t.Errorf("undisclosed should be empty, got: %v", undisclosed["_sd"].([]string))
+			}
+		})
+
+		nationalities := keyPresent(t, claims, "nationalities").([]any)
+		t.Run("validate nationalities", func(t *testing.T) {
+			if len(nationalities) != 1 {
+				t.Errorf("nationalities has wrong length: %d", len(nationalities))
+			}
+			if sn, ok := nationalities[0].(string); !ok {
+				t.Errorf("nationalities has wrong type: %T", nationalities[0])
+			} else if sn != "DE" {
+				t.Errorf("nationalities has wrong value: %s", sn)
+			}
+		})
+	})
+
+	t.Run("we can validate the disclosed claims from our SdJwt", func(t *testing.T) {
+		t.Run("validate disclosed claims", func(t *testing.T) {
+			keyPresent(t, disclosedClaims, "birth_middle_name")
+			keyPresent(t, disclosedClaims, "msisdn")
+			keyPresent(t, disclosedClaims, "salutation")
+			keyPresent(t, disclosedClaims, "cnf")
+			keyPresent(t, disclosedClaims, "verified_claims")
+		})
+
+		cnf := keyPresent(t, disclosedClaims, "cnf").(map[string]any)
+		t.Run("validate cnf", func(t *testing.T) {
+			keyPresent(t, cnf, "e")
+			keyPresent(t, cnf, "kty")
+			keyPresent(t, cnf, "n")
+		})
+
+		verifiedClaims := keyPresent(t, disclosedClaims, "verified_claims").(map[string]any)
+		t.Run("validate verified_claims", func(t *testing.T) {
+			keyPresent(t, verifiedClaims, "claims")
+		})
+
+		claims := keyPresent(t, verifiedClaims, "claims").(map[string]any)
+		t.Run("validate claims", func(t *testing.T) {
+			keyPresent(t, claims, "address")
+			keyPresent(t, claims, "undisclosed")
+			keyPresent(t, claims, "birthdate")
+			keyPresent(t, claims, "family_name")
+			keyPresent(t, claims, "given_name")
+			keyPresent(t, claims, "nationalities")
+		})
+
+		address := keyPresent(t, claims, "address").(map[string]any)
+		t.Run("validate address", func(t *testing.T) {
+			keyPresent(t, address, "country")
+			keyPresent(t, address, "locality")
+			keyPresent(t, address, "postal_code")
+			keyPresent(t, address, "street_address")
+		})
+
+		if len(keyPresent(t, claims, "undisclosed").(map[string]any)) != 0 {
+			t.Errorf("undisclosed claims should be empty, got: %v", claims["undisclosed"])
+		}
+
+		nationalities := keyPresent(t, claims, "nationalities").([]any)
+		t.Run("validate nationalities", func(t *testing.T) {
+			if len(nationalities) != 1 {
+				t.Errorf("nationalities has wrong length: %d", len(nationalities))
+			}
+			de, ok := nationalities[0].(string)
+			if !ok {
+				t.Error("nationalities should have a single string")
+			}
+			if de != "DE" {
+				t.Errorf("incorrect nationalities value storred: %s", de)
+			}
+		})
+	})
+
+	t.Run("we can receive the sd-jwt as a holder and reissue with a subset of disclosures and with key binding", func(t *testing.T) {
+		providedSdJwt, err := go_sd_jwt.New(sdJwtString)
+		if err != nil {
+			t.Fatalf("No error expected: %s", err.Error())
+		}
+
+		allDisclosures := providedSdJwt.Disclosures
+
+		subsetDisclosures := []disclosure.Disclosure{}
+
+		for _, d := range allDisclosures {
+			if d.Key != nil && (*d.Key == "locality" || *d.Key == "postal_code" || *d.Key == "country") {
+				subsetDisclosures = append(subsetDisclosures, d)
+			}
+		}
+
+		providedSdJwt.Disclosures = subsetDisclosures
+
+		nonce := make([]byte, 32)
+		_, err = rand.Read(nonce)
+		if err != nil {
+			t.Fatalf("error generating nonce value: %s", err.Error())
+		}
+
+		err = providedSdJwt.AddKeyBindingJwt(holderSigner, crypto.SHA256, holderSigner.Alg().String(), "https://audience.com", base64.RawURLEncoding.EncodeToString(nonce))
+		if err != nil {
+			t.Fatalf("error adding kb jwt: %s", err.Error())
+		}
+
+		// a receiver would be able to validate
+		bHead, err := json.Marshal(providedSdJwt.Head)
+		if err != nil {
+			t.Fatalf("error marshalling head as json: %s", err.Error())
+		}
+		b64Head := make([]byte, base64.RawURLEncoding.EncodedLen(len(bHead)))
+		base64.RawURLEncoding.Encode(b64Head, bHead)
+
+		bBody, err := json.Marshal(providedSdJwt.Body)
+		if err != nil {
+			t.Fatalf("error marshalling body as json: %s", err.Error())
+		}
+		b64Body := make([]byte, base64.RawURLEncoding.EncodedLen(len(bBody)))
+		base64.RawURLEncoding.Encode(b64Body, bBody)
+
+		disclosures := make([]string, len(providedSdJwt.Disclosures))
+		for i, d := range providedSdJwt.Disclosures {
+			disclosures[i] = d.EncodedValue
+		}
+
+		finalToken, err := go_sd_jwt.NewFromComponents(string(b64Head), string(b64Body), providedSdJwt.Signature, disclosures, &providedSdJwt.KbJwt.Token)
+		if err != nil {
+			t.Fatalf("error parsing final token: %s", err.Error())
+		}
+		finalDisclosedClaims, err := finalToken.GetDisclosedClaims()
+		if err != nil {
+			t.Fatalf("error extracting disclosed claims from final token: %s", err.Error())
+		}
+
+		ftString, err := finalToken.Token()
+		if err != nil {
+			t.Fatalf("no error should be thrown")
+		}
+		t.Log(*ftString)
+
+		t.Run("validate disclosed claims", func(t *testing.T) {
+			keyPresent(t, finalDisclosedClaims, "birth_middle_name")
+			keyPresent(t, finalDisclosedClaims, "msisdn")
+			keyPresent(t, finalDisclosedClaims, "salutation")
+			keyPresent(t, finalDisclosedClaims, "cnf")
+			keyPresent(t, finalDisclosedClaims, "verified_claims")
+		})
+
+		cnf := keyPresent(t, finalDisclosedClaims, "cnf").(map[string]any)
+		t.Run("validate cnf", func(t *testing.T) {
+			keyPresent(t, cnf, "e")
+			keyPresent(t, cnf, "kty")
+			keyPresent(t, cnf, "n")
+		})
+
+		verifiedClaims := keyPresent(t, finalDisclosedClaims, "verified_claims").(map[string]any)
+		t.Run("validate verified_claims", func(t *testing.T) {
+			keyPresent(t, verifiedClaims, "claims")
+		})
+
+		claims := keyPresent(t, verifiedClaims, "claims").(map[string]any)
+		t.Run("validate claims", func(t *testing.T) {
+			keyPresent(t, claims, "address")
+			keyPresent(t, claims, "undisclosed")
+			keyPresent(t, claims, "birthdate")
+			keyPresent(t, claims, "family_name")
+			keyPresent(t, claims, "given_name")
+		})
+
+		address := keyPresent(t, claims, "address").(map[string]any)
+		t.Run("validate address", func(t *testing.T) {
+			keyPresent(t, address, "country")
+			keyPresent(t, address, "locality")
+			keyPresent(t, address, "postal_code")
+			keyNotPresent(t, address, "street_address")
+		})
+
+		if len(keyPresent(t, claims, "undisclosed").(map[string]any)) != 0 {
+			t.Errorf("undisclosed claims should be empty, got: %v", claims["undisclosed"])
+		}
 	})
 }
 

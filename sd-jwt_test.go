@@ -5,14 +5,16 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/MichaelFraser99/go-jose/jws"
 	"github.com/MichaelFraser99/go-jose/model"
 	go_sd_jwt "github.com/MichaelFraser99/go-sd-jwt"
 	"github.com/MichaelFraser99/go-sd-jwt/disclosure"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,13 +24,11 @@ func TestMain(m *testing.M) {
 }
 
 func TestNew(t *testing.T) {
-	tests := []struct {
-		name     string
+	tests := map[string]struct {
 		token    string
 		validate func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error)
 	}{
-		{
-			name:  "valid token",
+		"valid token": {
 			token: "eyJhbGciOiAiRVMyNTYifQ.eyJfc2QiOiBbIkNyUWU3UzVrcUJBSHQtbk1ZWGdjNmJkdDJTSDVhVFkxc1VfTS1QZ2tqUEkiLCAiSnpZakg0c3ZsaUgwUjNQeUVNZmVadTZKdDY5dTVxZWhabzdGN0VQWWxTRSIsICJQb3JGYnBLdVZ1Nnh5bUphZ3ZrRnNGWEFiUm9jMkpHbEFVQTJCQTRvN2NJIiwgIlRHZjRvTGJnd2Q1SlFhSHlLVlFaVTlVZEdFMHc1cnREc3JaemZVYW9tTG8iLCAiWFFfM2tQS3QxWHlYN0tBTmtxVlI2eVoyVmE1TnJQSXZQWWJ5TXZSS0JNTSIsICJYekZyendzY002R242Q0pEYzZ2Vks4QmtNbmZHOHZPU0tmcFBJWmRBZmRFIiwgImdiT3NJNEVkcTJ4Mkt3LXc1d1BFemFrb2I5aFYxY1JEMEFUTjNvUUw5Sk0iLCAianN1OXlWdWx3UVFsaEZsTV8zSmx6TWFTRnpnbGhRRzBEcGZheVF3TFVLNCJdLCAiaXNzIjogImh0dHBzOi8vZXhhbXBsZS5jb20vaXNzdWVyIiwgImlhdCI6IDE2ODMwMDAwMDAsICJleHAiOiAxODgzMDAwMDAwLCAic3ViIjogInVzZXJfNDIiLCAibmF0aW9uYWxpdGllcyI6IFt7Ii4uLiI6ICJwRm5kamtaX1ZDem15VGE2VWpsWm8zZGgta284YUlLUWM5RGxHemhhVllvIn0sIHsiLi4uIjogIjdDZjZKa1B1ZHJ5M2xjYndIZ2VaOGtoQXYxVTFPU2xlclAwVmtCSnJXWjAifV0sICJfc2RfYWxnIjogInNoYS0yNTYiLCAiY25mIjogeyJqd2siOiB7Imt0eSI6ICJFQyIsICJjcnYiOiAiUC0yNTYiLCAieCI6ICJUQ0FFUjE5WnZ1M09IRjRqNFc0dmZTVm9ISVAxSUxpbERsczd2Q2VHZW1jIiwgInkiOiAiWnhqaVdXYlpNUUdIVldLVlE0aGJTSWlyc1ZmdWVjQ0U2dDRqVDlGMkhaUSJ9fX0.kmx687kUBiIDvKWgo2Dub-TpdCCRLZwtD7TOj4RoLsUbtFBI8sMrtH2BejXtm_P6fOAjKAVc_7LRNJFgm3PJhg~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgImdpdmVuX25hbWUiLCAiSm9obiJd~WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgImZhbWlseV9uYW1lIiwgIkRvZSJd~WyI2SWo3dE0tYTVpVlBHYm9TNXRtdlZBIiwgImVtYWlsIiwgImpvaG5kb2VAZXhhbXBsZS5jb20iXQ~WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgInBob25lX251bWJlciIsICIrMS0yMDItNTU1LTAxMDEiXQ~WyJRZ19PNjR6cUF4ZTQxMmExMDhpcm9BIiwgInBob25lX251bWJlcl92ZXJpZmllZCIsIHRydWVd~WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImFkZHJlc3MiLCB7InN0cmVldF9hZGRyZXNzIjogIjEyMyBNYWluIFN0IiwgImxvY2FsaXR5IjogIkFueXRvd24iLCAicmVnaW9uIjogIkFueXN0YXRlIiwgImNvdW50cnkiOiAiVVMifV0~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0~WyJHMDJOU3JRZmpGWFE3SW8wOXN5YWpBIiwgInVwZGF0ZWRfYXQiLCAxNTcwMDAwMDAwXQ~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgIlVTIl0~WyJuUHVvUW5rUkZxM0JJZUFtN0FuWEZBIiwgIkRFIl0~",
 			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
 				if err != nil {
@@ -57,7 +57,9 @@ func TestNew(t *testing.T) {
 					}
 
 					claims, err := sdJwt.GetDisclosedClaims()
-					require.NoError(t, err)
+					if err != nil {
+						t.Fatalf("error should be nil: %s", err.Error())
+					}
 
 					b, _ := json.Marshal(claims)
 					t.Log(string(b))
@@ -83,8 +85,102 @@ func TestNew(t *testing.T) {
 				}
 			},
 		},
-		{
-			name:  "valid token more complex structure",
+		"valid token with no disclosures": {
+			token: "eyJhbGciOiAiRVMyNTYifQ.eyJfc2QiOiBbIkNyUWU3UzVrcUJBSHQtbk1ZWGdjNmJkdDJTSDVhVFkxc1VfTS1QZ2tqUEkiLCAiSnpZakg0c3ZsaUgwUjNQeUVNZmVadTZKdDY5dTVxZWhabzdGN0VQWWxTRSIsICJQb3JGYnBLdVZ1Nnh5bUphZ3ZrRnNGWEFiUm9jMkpHbEFVQTJCQTRvN2NJIiwgIlRHZjRvTGJnd2Q1SlFhSHlLVlFaVTlVZEdFMHc1cnREc3JaemZVYW9tTG8iLCAiWFFfM2tQS3QxWHlYN0tBTmtxVlI2eVoyVmE1TnJQSXZQWWJ5TXZSS0JNTSIsICJYekZyendzY002R242Q0pEYzZ2Vks4QmtNbmZHOHZPU0tmcFBJWmRBZmRFIiwgImdiT3NJNEVkcTJ4Mkt3LXc1d1BFemFrb2I5aFYxY1JEMEFUTjNvUUw5Sk0iLCAianN1OXlWdWx3UVFsaEZsTV8zSmx6TWFTRnpnbGhRRzBEcGZheVF3TFVLNCJdLCAiaXNzIjogImh0dHBzOi8vZXhhbXBsZS5jb20vaXNzdWVyIiwgImlhdCI6IDE2ODMwMDAwMDAsICJleHAiOiAxODgzMDAwMDAwLCAic3ViIjogInVzZXJfNDIiLCAibmF0aW9uYWxpdGllcyI6IFt7Ii4uLiI6ICJwRm5kamtaX1ZDem15VGE2VWpsWm8zZGgta284YUlLUWM5RGxHemhhVllvIn0sIHsiLi4uIjogIjdDZjZKa1B1ZHJ5M2xjYndIZ2VaOGtoQXYxVTFPU2xlclAwVmtCSnJXWjAifV0sICJfc2RfYWxnIjogInNoYS0yNTYiLCAiY25mIjogeyJqd2siOiB7Imt0eSI6ICJFQyIsICJjcnYiOiAiUC0yNTYiLCAieCI6ICJUQ0FFUjE5WnZ1M09IRjRqNFc0dmZTVm9ISVAxSUxpbERsczd2Q2VHZW1jIiwgInkiOiAiWnhqaVdXYlpNUUdIVldLVlE0aGJTSWlyc1ZmdWVjQ0U2dDRqVDlGMkhaUSJ9fX0.kmx687kUBiIDvKWgo2Dub-TpdCCRLZwtD7TOj4RoLsUbtFBI8sMrtH2BejXtm_P6fOAjKAVc_7LRNJFgm3PJhg~",
+			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
+				if err != nil {
+					t.Errorf("error should be nil: %s", err.Error())
+				}
+				if sdJwt == nil {
+					t.Fatal("sdJwt should not be nil")
+				} else {
+					if len(sdJwt.Head) == 0 {
+						t.Error("head should not be empty")
+					}
+					if sdJwt.Body == nil {
+						t.Error("body should not be empty")
+					}
+					if sdJwt.Signature == "" {
+						t.Error("signature should not be empty")
+					}
+					if len(sdJwt.Disclosures) != 0 {
+						t.Error("disclosures should be empty")
+					}
+					if sdJwt.KbJwt != nil {
+						t.Error("kbJwt should be nil:", *sdJwt.KbJwt)
+					}
+
+					claims, err := sdJwt.GetDisclosedClaims()
+					if err != nil {
+						t.Fatalf("error should be nil: %s", err.Error())
+					}
+
+					if diff := cmp.Diff(map[string]any{
+						"cnf": map[string]any{
+							"jwk": map[string]any{
+								"crv": "P-256",
+								"kty": "EC",
+								"x":   "TCAER19Zvu3OHF4j4W4vfSVoHIP1ILilDls7vCeGemc",
+								"y":   "ZxjiWWbZMQGHVWKVQ4hbSIirsVfuecCE6t4jT9F2HZQ",
+							},
+						},
+						"exp": float64(1883000000),
+						"iat": float64(1683000000),
+						"iss": "https://example.com/issuer",
+						"sub": "user_42",
+					}, claims); diff != "" {
+						t.Errorf("result mismatch (-want +got):\n%s", diff)
+					}
+				}
+			},
+		},
+		"valid token with no disclosures and a kb-jwt": {
+			token: "eyJhbGciOiJSUzI1NiIsInR5cCI6ImFwcGxpY2F0aW9uL2pzb24rc2Qtand0In0.eyJiaXJ0aF9taWRkbGVfbmFtZSI6IlRpbW90aGV1cyIsImNuZiI6eyJlIjoiQVFBQiIsImtpZCI6IkpGSGszYnhYTGFVN2x4WS1FdzlyTWppUEtIZUNTTGhWbFVjQzdpOFVHMzAiLCJrdHkiOiJSU0EiLCJuIjoiNnhPT0pnRkRZOTdZZzNQLWxrM2d0cDh3emxJTThNVFF3NHVmRXF1R0RzRkdPMHEydERPaWk1bS1FenBhN3BQc0R5a25BSjNGNDFsQ1cxc3ZxM1BZZVMwUi1jc1VLbWRUeGhJTUcxVGZ6MXVUTWJsbjZjbWtBTTJkWnBZanRGd3FCQURzc2NnS3V4Q3FQMzFiRzZoeFVhUDZLTWFFZEhVQTJXRmxrQWNBcTlHWThGaUR0MzlkZUstWXpMVmxiRGk0bmZKb2l3amJ2MWdraGI5OXF6ZmhBYVpNQ19IWUZrSHVMVjVxSGQ4ZTd3QjNLdG9IZ01qSldWY0xpd0dnemlKdlhoZHh1WkxZVFplSDllcGpCRlpUUUQyWXRYMVdsbG80TmVxRWc1TGJIcHpRX0NpTnI1VGJmXy1kdmMzU2JMOUM0Q1dDR2xucEpzclVMbE5lQTRucnVPYkxiOEtVaWlxaDVDOTFwYjNRMFFqRGkzdHotaVR0VHNyWUpGT1ZDQWdMUElaZXV1bVpvenM5bzdDakpFVTljbXIxMHFFZ1NxdkZPdUFwaFRBSlFoUTFQWjZNelFMY1h2am5HTDBHNFFKa1o4LTU0Z2xtY1lrQTc1WkVIU29ielVNb3ZKYVNqUGtwTFFXWVJfRDRxZm9sUE9TNE82dm9uMmx2a2VaaE8tZFFZVnN4RDlfZmhEVnRWWm1yU0R0QzdZTzZfSVdqLV9aNFh1MF8wNVdIWGR4ZV8ySTBEY2tVbDc5V0IzOVJSSjZSQ3o2YVAzQXR5aHRxWE44enJsVkwzSEZQYUc2OV9xVXZhN1BtUzdZOGN5ckRlOU8xa2FMWnZNV3JDTGh2V2doSkxvejBSRV9Qa1ZKR2M4S2dmNzlpeGxnd3NtSl9Vd1I2MXZqUWFaUkZsODgifSwibXNpc2RuIjoiNDkxMjM0NTY3ODkiLCJzYWx1dGF0aW9uIjoiRHIuIn0.QmzsvedvjdTr9K1GOwczHDqaiBFlj1BgNfkC3E-PzvwPIDw-9LofFDi-YEqCEKXl4V9ljYCOxPQq5hHhK7uGB4x0uCuQYRgjla1wF8Chdcgfh9V63-Ls0OaIxET8sljvuCUKjaojlj51wMNGbFQZ-JkioTitUXZ0nXJa_sWptHfAMkzE_Ty_2eH4X9iIX2uBxtPTr_0sWwEkwdZ1OvkF8RNyVYuCfkEwb9FGNULyeNids9qPV0wjZ3dSGTKq2r6bAc3rowDrtLggAHquVKXRLsDqQ16AWPh-R0QpHenI7hg3PpnbvZvgopcoEUO5MeIgy-vvvdTm4s1llRL7dRsVmhGJmgIP9WgOzSQifzMScjjBNB_dxJ18sqXTPoTSOrfKwcrNAjyMls7KlN_l2ahVm7VbvkdNMRV4u8bYKERd_erA153Csc3jwfRSsnqr9XrmfmTY9p8w0JZuqPoif3yBFUc7Zv9y5JkKopET3VWtDWRk2hQpzSkaiBXbf2yA7U1F1EhQ2WzO_7p-nKJ3Hv6micsM1QNLM75YmG729uUWZZNIsRl00l9ALD4vNzj_5LGkL35A-KTX3pywiUDKuPpqKKtzLF8WLcfk1pjAQJIN96CRMmdosttq1rjVCi4uoZNQa8PtQT-iSiLKFiu2WFN0LLueeW79Ss79DgK_6zMXOms~eyJhbGciOiJSUzI1NiIsInR5cCI6ImtiK2p3dCJ9.eyJpYXQiOjE3NTY1MjIwOTMsImF1ZCI6Imh0dHBzOi8vYXVkaWVuY2UuY29tIiwibm9uY2UiOiJodXlMZ2E0QXliTGhTeUZoMkZzazVBX3VjZVplTl9nLWhPOVhCcU9qYWw4Iiwic2RfaGFzaCI6IlVITHViM2JKRUktS0dzZ2g1TFBZNnNmTzBhd1plNTkyS3hqSUlzMW9rVFEifQ.Jf3R62KIvye7Q8i1bmMEiaoqIvnZurRo1EPTles03hIAeTuKxXLSLyWRjlJtYd7oCZBWgS-62sYAJhEk5_lS1meZh1VqPT_xXN8mGM8Y-EgS1-Vmo_mB3gkr1acgB8K9n0rgYp1Fja_7Sw_qAkIBCayNip1uKLakw0JsHx_l0IKqTypyJ5VDr7-oh08fI-tBTH1oe7Xs8SNZfczqbHzWX9_JdPrO0u_LIOZNlNK7f2KHESsWnsO5FO7ogkdmnUnFN7hX3ozmv3u7MhZVYEdB9IELauAirRYpFVxg2O9Go6spEtytxZtcyDxDBLE6MXWUvcj8jutS2GAgxC0OjZS_n4eppI2gSfeoD8xfGvSzinhez2kLdFqlRIfweo4a6uzJIVUwXvJWtcYurDKKeH_PCzV_-zYRs7f3vCme6l0hMyYU4JQjkgBD_dmJXL4xfqWLhD9_LVOIjO5ErBP8tmYKCrycH28851Eko_sopNA71XNcsTlE4m7F8-KRw_gIrkSRk8RkoMllPMA0t8eqHRnd5NLI3G0B6AOsKa-dpT_glPScoSPzVYpHphJBwTgBA5ECtG1Cty_fhL2RCkIHWt7CGwAZRUnz-QMt-nHsjsmmamDXLZt15rGOmCmxHXf_iE8Y6QPAAjeDWQh-71E0RQS8pxm9R9P4OguilkoIRlmvEUs",
+			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
+				if err != nil {
+					t.Errorf("error should be nil: %s", err.Error())
+				}
+				if sdJwt == nil {
+					t.Fatal("sdJwt should not be nil")
+				} else {
+					if len(sdJwt.Head) == 0 {
+						t.Error("head should not be empty")
+					}
+					if sdJwt.Body == nil {
+						t.Error("body should not be empty")
+					}
+					if sdJwt.Signature == "" {
+						t.Error("signature should not be empty")
+					}
+					if len(sdJwt.Disclosures) != 0 {
+						t.Error("disclosures should be empty")
+					}
+					if sdJwt.KbJwt == nil {
+						t.Error("kbJwt should not be nil")
+					}
+
+					claims, err := sdJwt.GetDisclosedClaims()
+					if err != nil {
+						t.Fatalf("error should be nil: %s", err.Error())
+					}
+
+					if diff := cmp.Diff(map[string]any{
+						"birth_middle_name": "Timotheus",
+						"cnf": map[string]any{
+							"e":   "AQAB",
+							"kid": "JFHk3bxXLaU7lxY-Ew9rMjiPKHeCSLhVlUcC7i8UG30",
+							"kty": "RSA",
+							"n":   "6xOOJgFDY97Yg3P-lk3gtp8wzlIM8MTQw4ufEquGDsFGO0q2tDOii5m-Ezpa7pPsDyknAJ3F41lCW1svq3PYeS0R-csUKmdTxhIMG1Tfz1uTMbln6cmkAM2dZpYjtFwqBADsscgKuxCqP31bG6hxUaP6KMaEdHUA2WFlkAcAq9GY8FiDt39deK-YzLVlbDi4nfJoiwjbv1gkhb99qzfhAaZMC_HYFkHuLV5qHd8e7wB3KtoHgMjJWVcLiwGgziJvXhdxuZLYTZeH9epjBFZTQD2YtX1Wllo4NeqEg5LbHpzQ_CiNr5Tbf_-dvc3SbL9C4CWCGlnpJsrULlNeA4nruObLb8KUiiqh5C91pb3Q0QjDi3tz-iTtTsrYJFOVCAgLPIZeuumZozs9o7CjJEU9cmr10qEgSqvFOuAphTAJQhQ1PZ6MzQLcXvjnGL0G4QJkZ8-54glmcYkA75ZEHSobzUMovJaSjPkpLQWYR_D4qfolPOS4O6von2lvkeZhO-dQYVsxD9_fhDVtVZmrSDtC7YO6_IWj-_Z4Xu0_05WHXdxe_2I0DckUl79WB39RRJ6RCz6aP3AtyhtqXN8zrlVL3HFPaG69_qUva7PmS7Y8cyrDe9O1kaLZvMWrCLhvWghJLoz0RE_PkVJGc8Kgf79ixlgwsmJ_UwR61vjQaZRFl88",
+						},
+						"msisdn":     "49123456789",
+						"salutation": "Dr.",
+					}, claims); diff != "" {
+						t.Errorf("result mismatch (-want +got):\n%s", diff)
+					}
+				}
+			},
+		},
+		"valid token more complex structure": {
 			token: "eyJhbGciOiAiRVMyNTYifQ.eyJfc2QiOiBbIkM5aW5wNllvUmFFWFI0Mjd6WUpQN1FyazFXSF84YmR3T0FfWVVyVW5HUVUiLCAiS3VldDF5QWEwSElRdlluT1ZkNTloY1ZpTzlVZzZKMmtTZnFZUkJlb3d2RSIsICJNTWxkT0ZGekIyZDB1bWxtcFRJYUdlcmhXZFVfUHBZZkx2S2hoX2ZfOWFZIiwgIlg2WkFZT0lJMnZQTjQwVjd4RXhad1Z3ejd5Um1MTmNWd3Q1REw4Ukx2NGciLCAiWTM0em1JbzBRTExPdGRNcFhHd2pCZ0x2cjE3eUVoaFlUMEZHb2ZSLWFJRSIsICJmeUdwMFdUd3dQdjJKRFFsbjFsU2lhZW9iWnNNV0ExMGJRNTk4OS05RFRzIiwgIm9tbUZBaWNWVDhMR0hDQjB1eXd4N2ZZdW8zTUhZS08xNWN6LVJaRVlNNVEiLCAiczBCS1lzTFd4UVFlVTh0VmxsdE03TUtzSVJUckVJYTFQa0ptcXhCQmY1VSJdLCAiaXNzIjogImh0dHBzOi8vaXNzdWVyLmV4YW1wbGUuY29tIiwgImlhdCI6IDE2ODMwMDAwMDAsICJleHAiOiAxODgzMDAwMDAwLCAiYWRkcmVzcyI6IHsiX3NkIjogWyI2YVVoelloWjdTSjFrVm1hZ1FBTzN1MkVUTjJDQzFhSGhlWnBLbmFGMF9FIiwgIkF6TGxGb2JrSjJ4aWF1cFJFUHlvSnotOS1OU2xkQjZDZ2pyN2ZVeW9IemciLCAiUHp6Y1Z1MHFiTXVCR1NqdWxmZXd6a2VzRDl6dXRPRXhuNUVXTndrclEtayIsICJiMkRrdzBqY0lGOXJHZzhfUEY4WmN2bmNXN3p3Wmo1cnlCV3ZYZnJwemVrIiwgImNQWUpISVo4VnUtZjlDQ3lWdWIyVWZnRWs4anZ2WGV6d0sxcF9KbmVlWFEiLCAiZ2xUM2hyU1U3ZlNXZ3dGNVVEWm1Xd0JUdzMyZ25VbGRJaGk4aEdWQ2FWNCIsICJydkpkNmlxNlQ1ZWptc0JNb0d3dU5YaDlxQUFGQVRBY2k0MG9pZEVlVnNBIiwgInVOSG9XWWhYc1poVkpDTkUyRHF5LXpxdDd0NjlnSkt5NVFhRnY3R3JNWDQiXX0sICJfc2RfYWxnIjogInNoYS0yNTYifQ.IjE4EfnYu1RZ1uz6yqtFh5Lppq36VC4VeSr-hLDFpZ9zqBNmMrT5JHLLXTuMJqKQp3NIzDsLaft4GK5bYyfqhg~WyJHMDJOU3JRZmpGWFE3SW8wOXN5YWpBIiwgInJlZ2lvbiIsICJcdTZlMmZcdTUzM2EiXQ~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgImNvdW50cnkiLCAiSlAiXQ~",
 			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
 				if err != nil {
@@ -113,7 +209,9 @@ func TestNew(t *testing.T) {
 					}
 
 					claims, err := sdJwt.GetDisclosedClaims()
-					require.NoError(t, err)
+					if err != nil {
+						t.Fatalf("error should be nil: %s", err.Error())
+					}
 
 					b, _ := json.Marshal(claims)
 					t.Log(string(b))
@@ -130,8 +228,7 @@ func TestNew(t *testing.T) {
 				}
 			},
 		},
-		{
-			name:  "valid token with a very complex structure",
+		"valid token with a very complex structure": {
 			token: "eyJhbGciOiAiRVMyNTYifQ.eyJfc2QiOiBbIi1hU3puSWQ5bVdNOG9jdVFvbENsbHN4VmdncTEtdkhXNE90bmhVdFZtV3ciLCAiSUticllObjN2QTdXRUZyeXN2YmRCSmpERFVfRXZRSXIwVzE4dlRScFVTZyIsICJvdGt4dVQxNG5CaXd6TkozTVBhT2l0T2w5cFZuWE9hRUhhbF94a3lOZktJIl0sICJpc3MiOiAiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZS5jb20iLCAiaWF0IjogMTY4MzAwMDAwMCwgImV4cCI6IDE4ODMwMDAwMDAsICJ2ZXJpZmllZF9jbGFpbXMiOiB7InZlcmlmaWNhdGlvbiI6IHsiX3NkIjogWyI3aDRVRTlxU2N2REtvZFhWQ3VvS2ZLQkpwVkJmWE1GX1RtQUdWYVplM1NjIiwgInZUd2UzcmFISUZZZ0ZBM3hhVUQyYU14Rno1b0RvOGlCdTA1cUtsT2c5THciXSwgInRydXN0X2ZyYW1ld29yayI6ICJkZV9hbWwiLCAiZXZpZGVuY2UiOiBbeyIuLi4iOiAidFlKMFREdWN5WlpDUk1iUk9HNHFSTzV2a1BTRlJ4RmhVRUxjMThDU2wzayJ9XX0sICJjbGFpbXMiOiB7Il9zZCI6IFsiUmlPaUNuNl93NVpIYWFka1FNcmNRSmYwSnRlNVJ3dXJSczU0MjMxRFRsbyIsICJTXzQ5OGJicEt6QjZFYW5mdHNzMHhjN2NPYW9uZVJyM3BLcjdOZFJtc01vIiwgIldOQS1VTks3Rl96aHNBYjlzeVdPNklJUTF1SGxUbU9VOHI4Q3ZKMGNJTWsiLCAiV3hoX3NWM2lSSDliZ3JUQkppLWFZSE5DTHQtdmpoWDFzZC1pZ09mXzlsayIsICJfTy13SmlIM2VuU0I0Uk9IbnRUb1FUOEptTHR6LW1oTzJmMWM4OVhvZXJRIiwgImh2RFhod21HY0pRc0JDQTJPdGp1TEFjd0FNcERzYVUwbmtvdmNLT3FXTkUiXX19LCAiX3NkX2FsZyI6ICJzaGEtMjU2In0.kbfpTas9_-dLMgyeUxIXuBGLtCZUO2bG9JA7v73ebzpX1LA5MBtQsyZZut-Bm3_TW8sTqLCDPUN4ZC5pKCyQig~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgInRpbWUiLCAiMjAxMi0wNC0yM1QxODoyNVoiXQ~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgeyJfc2QiOiBbIjl3cGpWUFd1RDdQSzBuc1FETDhCMDZsbWRnVjNMVnliaEh5ZFFwVE55TEkiLCAiRzVFbmhPQU9vVTlYXzZRTU52ekZYanBFQV9SYy1BRXRtMWJHX3djYUtJayIsICJJaHdGcldVQjYzUmNacTl5dmdaMFhQYzdHb3doM08ya3FYZUJJc3dnMUI0IiwgIldweFE0SFNvRXRjVG1DQ0tPZURzbEJfZW11Y1lMejJvTzhvSE5yMWJFVlEiXX1d~WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgIm1ldGhvZCIsICJwaXBwIl0~WyJHMDJOU3JRZmpGWFE3SW8wOXN5YWpBIiwgImdpdmVuX25hbWUiLCAiTWF4Il0~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgImZhbWlseV9uYW1lIiwgIk1cdTAwZmNsbGVyIl0~WyJ5MXNWVTV3ZGZKYWhWZGd3UGdTN1JRIiwgImFkZHJlc3MiLCB7ImxvY2FsaXR5IjogIk1heHN0YWR0IiwgInBvc3RhbF9jb2RlIjogIjEyMzQ0IiwgImNvdW50cnkiOiAiREUiLCAic3RyZWV0X2FkZHJlc3MiOiAiV2VpZGVuc3RyYVx1MDBkZmUgMjIifV0~",
 			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
 				if err != nil {
@@ -160,7 +257,9 @@ func TestNew(t *testing.T) {
 					}
 
 					claims, err := sdJwt.GetDisclosedClaims()
-					require.NoError(t, err)
+					if err != nil {
+						t.Fatalf("error should be nil: %s", err.Error())
+					}
 
 					b, _ := json.Marshal(claims)
 					t.Log(string(b))
@@ -203,8 +302,7 @@ func TestNew(t *testing.T) {
 				}
 			},
 		},
-		{
-			name:  "valid token with valid key-bound jwt",
+		"valid token with valid key-bound jwt": {
 			token: "eyJhbGciOiAiRVMyNTYiLCAidHlwIjogImV4YW1wbGUrc2Qtand0In0.eyJfc2QiOiBbIkNyUWU3UzVrcUJBSHQtbk1ZWGdjNmJkdDJTSDVhVFkxc1VfTS1QZ2tqUEkiLCAiSnpZakg0c3ZsaUgwUjNQeUVNZmVadTZKdDY5dTVxZWhabzdGN0VQWWxTRSIsICJQb3JGYnBLdVZ1Nnh5bUphZ3ZrRnNGWEFiUm9jMkpHbEFVQTJCQTRvN2NJIiwgIlRHZjRvTGJnd2Q1SlFhSHlLVlFaVTlVZEdFMHc1cnREc3JaemZVYW9tTG8iLCAiWFFfM2tQS3QxWHlYN0tBTmtxVlI2eVoyVmE1TnJQSXZQWWJ5TXZSS0JNTSIsICJYekZyendzY002R242Q0pEYzZ2Vks4QmtNbmZHOHZPU0tmcFBJWmRBZmRFIiwgImdiT3NJNEVkcTJ4Mkt3LXc1d1BFemFrb2I5aFYxY1JEMEFUTjNvUUw5Sk0iLCAianN1OXlWdWx3UVFsaEZsTV8zSmx6TWFTRnpnbGhRRzBEcGZheVF3TFVLNCJdLCAiaXNzIjogImh0dHBzOi8vaXNzdWVyLmV4YW1wbGUuY29tIiwgImlhdCI6IDE2ODMwMDAwMDAsICJleHAiOiAxODgzMDAwMDAwLCAic3ViIjogInVzZXJfNDIiLCAibmF0aW9uYWxpdGllcyI6IFt7Ii4uLiI6ICJwRm5kamtaX1ZDem15VGE2VWpsWm8zZGgta284YUlLUWM5RGxHemhhVllvIn0sIHsiLi4uIjogIjdDZjZKa1B1ZHJ5M2xjYndIZ2VaOGtoQXYxVTFPU2xlclAwVmtCSnJXWjAifV0sICJfc2RfYWxnIjogInNoYS0yNTYiLCAiY25mIjogeyJqd2siOiB7Imt0eSI6ICJFQyIsICJjcnYiOiAiUC0yNTYiLCAieCI6ICJUQ0FFUjE5WnZ1M09IRjRqNFc0dmZTVm9ISVAxSUxpbERsczd2Q2VHZW1jIiwgInkiOiAiWnhqaVdXYlpNUUdIVldLVlE0aGJTSWlyc1ZmdWVjQ0U2dDRqVDlGMkhaUSJ9fX0.7oEYwv1H4rBa54xAhDH19DEIy-RRSTdwyJvhbjOKVFyQeM0-gcgpwCq-yFCbWj9THEjD9M4yYkAeaWXfuvBS-Q~WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgImZhbWlseV9uYW1lIiwgIkRvZSJd~WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImFkZHJlc3MiLCB7InN0cmVldF9hZGRyZXNzIjogIjEyMyBNYWluIFN0IiwgImxvY2FsaXR5IjogIkFueXRvd24iLCAicmVnaW9uIjogIkFueXN0YXRlIiwgImNvdW50cnkiOiAiVVMifV0~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgImdpdmVuX25hbWUiLCAiSm9obiJd~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgIlVTIl0~eyJhbGciOiAiRVMyNTYiLCAidHlwIjogImtiK2p3dCJ9.eyJub25jZSI6ICIxMjM0NTY3ODkwIiwgImF1ZCI6ICJodHRwczovL3ZlcmlmaWVyLmV4YW1wbGUub3JnIiwgImlhdCI6IDE3MDIzMTYwMTUsICJzZF9oYXNoIjogIm5ZY09YeVA0M3Y5c3pLcnluX2tfNEdrUnJfajNTVEhoTlNTLWkxRHVhdW8ifQ.12Qymun2geGbkYOwiV-DUVfS-zBBKqNe83yNbxM45J93bno-oM7mph3L1-rPa4lFKQ04wB-T9rU3uAZnBAan5g",
 			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
 				if err != nil {
@@ -233,7 +331,9 @@ func TestNew(t *testing.T) {
 					}
 
 					claims, err := sdJwt.GetDisclosedClaims()
-					require.NoError(t, err)
+					if err != nil {
+						t.Fatalf("error should be nil: %s", err.Error())
+					}
 
 					b, _ := json.Marshal(claims)
 					t.Log(string(b))
@@ -265,8 +365,7 @@ func TestNew(t *testing.T) {
 				}
 			},
 		},
-		{
-			name:  "valid token with disclosed address with no properties",
+		"valid token with disclosed address with no properties": {
 			token: "eyJhbGciOiJSUzI1NiIsInR5cCI6ImFwcGxpY2F0aW9uL2pzb24rc2Qtand0In0.eyJfc2QiOlsienctOU1SQXdtcUJXeTFUOEVua0JvZ2lyVEpfU2NTbnZfSGlCenhOWXFUNCJdLCJjbmYiOnsiZSI6IkFRQUIiLCJrdHkiOiJSU0EiLCJuIjoidlpEc29UMW5HVjR4X1gzck9HTGUzOF8tQmpibVUtUWxlSjRIZU1Fbl9GRUZLaEhTc1ZIR1dsR28xZ2pBckR5a2d5d0VTQVg0dEhqdURMUFZiODlkNzQ2eVJIRVF3aXRIbU5sTE40c1NGQUd1MWNJSU1iUDNuM3RrSWtYQlh5U25pMXNCanV4b3lnMFU1UmJQd1lMN2J0NklqWS04OWljd2ZjTVV1N2p3aV80dFk2SUUyQXpTbm9sQi1RN21tS2o1ZXNWeEJ3RTIzTkdlamp2NmNvLWNtTFVZMEhuZFE2QXo1RldKbjlGRTA3RlFOeHQwVXNLaGZDTi05eGVnVXR1c1lDX3IyZlg2SnRsYy1UYWlwQWV5WEZ2RFVIVHVUSEdWSHNseGN5NFhPVS15WnE2OFhGaHJUQnZRTVNKV1dxRDR0MjYyXzlIR2k2QlEzVmlpbE51ZDd3In0sImZhbWlseV9uYW1lIjoiTcO8bGxlciIsImdpdmVuX25hbWUiOiJNYXgifQ.xj0X10080FANgzrdpfWrbF0DO0Y3KwiJzoO8-C-pj_DU6xjrG9kX9Nbh6rFhD1iuX_aGL-tXQwXaiGrgWLC72ws_mleRkQ6cvibl-ej9mr45iqZ2vd9rQavBh_q5v9AoKI3vu763ZEp49b_Z02acOWbIK9LlmSf3_hivHvV8mV5tpUCaSxD8JQ8tWbD5q5WhPofeAprm0_ygj4JmF0EuC_ARPmAZEK8of9kIKTgRKsLQuAPreQId8Sg7tTZaSLL4D47DZlWY0ioO2wn6QyYXIbHFnx01EKbsk_I3F0ha4P0h0UPif3KcIRh_tGkrjazejAv7mXd0jJLjF9CEGJzNYw~WyI1eWZHRjVxZnhKN2ViOXN0anBIR3dRIiwiYWRkcmVzcyIseyJfc2QiOlsiaFRiS1NZdVBaaW5qMVBja1N1Z0pfdnRhc3dFVEYxR0xPSVRpRnM1Wnl1dyIsIk0xU3FsVWNyZ1Ewc1FuRE1Vek5nVVFXVXBWM19XWEN0YzN3QWNNMUx4Y2siLCJ1OTdHb1cwRnZiVkl3dElBdWJGZEFIbTVjaG5wc0VFVm1jTzVGNUJxeG5JIl19XQ~",
 			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
 				if err != nil {
@@ -295,7 +394,9 @@ func TestNew(t *testing.T) {
 					}
 
 					claims, err := sdJwt.GetDisclosedClaims()
-					require.NoError(t, err)
+					if err != nil {
+						t.Fatalf("error should be nil: %s", err.Error())
+					}
 
 					b, _ := json.Marshal(claims)
 					t.Log(string(b))
@@ -309,8 +410,7 @@ func TestNew(t *testing.T) {
 				}
 			},
 		},
-		{
-			name:  "another valid token with valid key-bound jwt",
+		"another valid token with valid key-bound jwt": {
 			token: "eyJhbGciOiAiRVMyNTYiLCAidHlwIjogImV4YW1wbGUrc2Qtand0In0.eyJAY29udGV4dCI6IFsiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvdjEiLCAiaHR0cHM6Ly93M2lkLm9yZy92YWNjaW5hdGlvbi92MSJdLCAidHlwZSI6IFsiVmVyaWZpYWJsZUNyZWRlbnRpYWwiLCAiVmFjY2luYXRpb25DZXJ0aWZpY2F0ZSJdLCAiaXNzdWVyIjogImh0dHBzOi8vZXhhbXBsZS5jb20vaXNzdWVyIiwgImlzc3VhbmNlRGF0ZSI6ICIyMDIzLTAyLTA5VDExOjAxOjU5WiIsICJleHBpcmF0aW9uRGF0ZSI6ICIyMDI4LTAyLTA4VDExOjAxOjU5WiIsICJuYW1lIjogIkNPVklELTE5IFZhY2NpbmF0aW9uIENlcnRpZmljYXRlIiwgImRlc2NyaXB0aW9uIjogIkNPVklELTE5IFZhY2NpbmF0aW9uIENlcnRpZmljYXRlIiwgImNyZWRlbnRpYWxTdWJqZWN0IjogeyJfc2QiOiBbIjFWX0stOGxEUThpRlhCRlhiWlk5ZWhxUjRIYWJXQ2k1VDB5Ykl6WlBld3ciLCAiSnpqTGd0UDI5ZFAtQjN0ZDEyUDY3NGdGbUsyenk4MUhNdEJnZjZDSk5XZyIsICJSMmZHYmZBMDdaX1lsa3FtTlp5bWExeHl5eDFYc3RJaVM2QjFZYmwySlo0IiwgIlRDbXpybDdLMmdldl9kdTdwY01JeXpSTEhwLVllZy1GbF9jeHRyVXZQeGciLCAiVjdrSkJMSzc4VG1WRE9tcmZKN1p1VVBIdUtfMmNjN3laUmE0cVYxdHh3TSIsICJiMGVVc3ZHUC1PRERkRm9ZNE5semxYYzN0RHNsV0p0Q0pGNzVOdzhPal9nIiwgInpKS19lU01YandNOGRYbU1aTG5JOEZHTTA4ekozX3ViR2VFTUotNVRCeTAiXSwgInZhY2NpbmUiOiB7Il9zZCI6IFsiMWNGNWhMd2toTU5JYXFmV0pyWEk3Tk1XZWRMLTlmNlkyUEE1MnlQalNaSSIsICJIaXk2V1d1ZUxENWJuMTYyOTh0UHY3R1hobWxkTURPVG5CaS1DWmJwaE5vIiwgIkxiMDI3cTY5MWpYWGwtakM3M3ZpOGViT2o5c214M0MtX29nN2dBNFRCUUUiXSwgInR5cGUiOiAiVmFjY2luZSJ9LCAicmVjaXBpZW50IjogeyJfc2QiOiBbIjFsU1FCTlkyNHEwVGg2T0d6dGhxLTctNGw2Y0FheHJZWE9HWnBlV19sbkEiLCAiM256THE4MU0yb04wNndkdjFzaEh2T0VKVnhaNUtMbWREa0hFREpBQldFSSIsICJQbjFzV2kwNkc0TEpybm4tX1JUMFJiTV9IVGR4blBKUXVYMmZ6V3ZfSk9VIiwgImxGOXV6ZHN3N0hwbEdMYzcxNFRyNFdPN01HSnphN3R0N1FGbGVDWDRJdHciXSwgInR5cGUiOiAiVmFjY2luZVJlY2lwaWVudCJ9LCAidHlwZSI6ICJWYWNjaW5hdGlvbkV2ZW50In0sICJfc2RfYWxnIjogInNoYS0yNTYiLCAiY25mIjogeyJqd2siOiB7Imt0eSI6ICJFQyIsICJjcnYiOiAiUC0yNTYiLCAieCI6ICJUQ0FFUjE5WnZ1M09IRjRqNFc0dmZTVm9ISVAxSUxpbERsczd2Q2VHZW1jIiwgInkiOiAiWnhqaVdXYlpNUUdIVldLVlE0aGJTSWlyc1ZmdWVjQ0U2dDRqVDlGMkhaUSJ9fX0.LvxBnGlzhbpnrIq-isT5riLqQ8yCqQv2TGJ51lnwxuScAGT_6pX1-D8WitwKUWFqhqYfz1qTS6nLpdbS5Ji3EA~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgIm9yZGVyIiwgIjMvMyJd~WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImRhdGVPZlZhY2NpbmF0aW9uIiwgIjIwMjEtMDYtMjNUMTM6NDA6MTJaIl0~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgImF0Y0NvZGUiLCAiSjA3QlgwMyJd~WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgIm1lZGljaW5hbFByb2R1Y3ROYW1lIiwgIkNPVklELTE5IFZhY2NpbmUgTW9kZXJuYSJd~eyJhbGciOiAiRVMyNTYiLCAidHlwIjogImtiK2p3dCJ9.eyJub25jZSI6ICIxMjM0NTY3ODkwIiwgImF1ZCI6ICJodHRwczovL3ZlcmlmaWVyLmV4YW1wbGUub3JnIiwgImlhdCI6IDE3MDIzMTYwMTUsICJzZF9oYXNoIjogImltREJmRW9QUWRrdWNBUDdTR0FHQWJaQ1lzYjVVM2w5VkZERVRUSjllUVEifQ.CREhV5QqVLe6B1AEgLKFJ2xiTvuINxNlNjYR1hZEZDS0Ixm1gxKHHVRtxrOcuHxv9kO9QRxV4ZQtThjnYavUgg",
 			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
 				if err != nil {
@@ -339,7 +439,9 @@ func TestNew(t *testing.T) {
 					}
 
 					claims, err := sdJwt.GetDisclosedClaims()
-					require.NoError(t, err)
+					if err != nil {
+						t.Fatalf("error should be nil: %s", err.Error())
+					}
 
 					b, _ := json.Marshal(claims)
 					t.Log(string(b))
@@ -376,8 +478,7 @@ func TestNew(t *testing.T) {
 				}
 			},
 		},
-		{
-			name:  "another valid token with invalid key-bound jwt",
+		"another valid token with invalid key-bound jwt": {
 			token: "eyJhbGciOiAiRVMyNTYiLCAidHlwIjogImV4YW1wbGUrc2Qtand0In0.eyJAY29udGV4dCI6IFsiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvdjEiLCAiaHR0cHM6Ly93M2lkLm9yZy92YWNjaW5hdGlvbi92MSJdLCAidHlwZSI6IFsiVmVyaWZpYWJsZUNyZWRlbnRpYWwiLCAiVmFjY2luYXRpb25DZXJ0aWZpY2F0ZSJdLCAiaXNzdWVyIjogImh0dHBzOi8vZXhhbXBsZS5jb20vaXNzdWVyIiwgImlzc3VhbmNlRGF0ZSI6ICIyMDIzLTAyLTA5VDExOjAxOjU5WiIsICJleHBpcmF0aW9uRGF0ZSI6ICIyMDI4LTAyLTA4VDExOjAxOjU5WiIsICJuYW1lIjogIkNPVklELTE5IFZhY2NpbmF0aW9uIENlcnRpZmljYXRlIiwgImRlc2NyaXB0aW9uIjogIkNPVklELTE5IFZhY2NpbmF0aW9uIENlcnRpZmljYXRlIiwgImNyZWRlbnRpYWxTdWJqZWN0IjogeyJfc2QiOiBbIjFWX0stOGxEUThpRlhCRlhiWlk5ZWhxUjRIYWJXQ2k1VDB5Ykl6WlBld3ciLCAiSnpqTGd0UDI5ZFAtQjN0ZDEyUDY3NGdGbUsyenk4MUhNdEJnZjZDSk5XZyIsICJSMmZHYmZBMDdaX1lsa3FtTlp5bWExeHl5eDFYc3RJaVM2QjFZYmwySlo0IiwgIlRDbXpybDdLMmdldl9kdTdwY01JeXpSTEhwLVllZy1GbF9jeHRyVXZQeGciLCAiVjdrSkJMSzc4VG1WRE9tcmZKN1p1VVBIdUtfMmNjN3laUmE0cVYxdHh3TSIsICJiMGVVc3ZHUC1PRERkRm9ZNE5semxYYzN0RHNsV0p0Q0pGNzVOdzhPal9nIiwgInpKS19lU01YandNOGRYbU1aTG5JOEZHTTA4ekozX3ViR2VFTUotNVRCeTAiXSwgInZhY2NpbmUiOiB7Il9zZCI6IFsiMWNGNWhMd2toTU5JYXFmV0pyWEk3Tk1XZWRMLTlmNlkyUEE1MnlQalNaSSIsICJIaXk2V1d1ZUxENWJuMTYyOTh0UHY3R1hobWxkTURPVG5CaS1DWmJwaE5vIiwgIkxiMDI3cTY5MWpYWGwtakM3M3ZpOGViT2o5c214M0MtX29nN2dBNFRCUUUiXSwgInR5cGUiOiAiVmFjY2luZSJ9LCAicmVjaXBpZW50IjogeyJfc2QiOiBbIjFsU1FCTlkyNHEwVGg2T0d6dGhxLTctNGw2Y0FheHJZWE9HWnBlV19sbkEiLCAiM256THE4MU0yb04wNndkdjFzaEh2T0VKVnhaNUtMbWREa0hFREpBQldFSSIsICJQbjFzV2kwNkc0TEpybm4tX1JUMFJiTV9IVGR4blBKUXVYMmZ6V3ZfSk9VIiwgImxGOXV6ZHN3N0hwbEdMYzcxNFRyNFdPN01HSnphN3R0N1FGbGVDWDRJdHciXSwgInR5cGUiOiAiVmFjY2luZVJlY2lwaWVudCJ9LCAidHlwZSI6ICJWYWNjaW5hdGlvbkV2ZW50In0sICJfc2RfYWxnIjogInNoYS0yNTYiLCAiY25mIjogeyJqd2siOiB7Imt0eSI6ICJFQyIsICJjcnYiOiAiUC0yNTYiLCAieCI6ICJUQ0FFUjE5WnZ1M09IRjRqNFc0dmZTVm9ISVAxSUxpbERsczd2Q2VHZW1jIiwgInkiOiAiWnhqaVdXYlpNUUdIVldLVlE0aGJTSWlyc1ZmdWVjQ0U2dDRqVDlGMkhaUSJ9fX0.LvxBnGlzhbpnrIq-isT5riLqQ8yCqQv2TGJ51lnwxuScAGT_6pX1-D8WitwKUWFqhqYfz1qTS6nLpdbS5Ji3EA~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgIm9yZGVyIiwgIjMvMyJd~WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImRhdGVPZlZhY2NpbmF0aW9uIiwgIjIwMjEtMDYtMjNUMTM6NDA6MTJaIl0~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgImF0Y0NvZGUiLCAiSjA3QlgwMyJd~WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgIm1lZGljaW5hbFByb2R1Y3ROYW1lIiwgIkNPVklELTE5IFZhY2NpbmUgTW9kZXJuYSJd~eyJhbGciOiAiRVMyNTYiLCAidHlwIjogImtiK2p3dCJ9.eyJub25jZSI6ICIxMjM0NTY3ODkwIiwgImF1ZCI6ICJodHRwczovL3ZlcmlmaWVyLmV4YW1wbGUub3JnIiwgImlhdCI6IDE3MDIzMTYwMTUsICJzZF9oYXNoIjogIm5ZY09YeVA0M3Y5c3pLcnluX2tfNEdrUnJfajNTVEhoTlNTLWkxRHVhdW8ifQ.12Qymun2geGbkYOwiV-DUVfS-zBBKqNe83yNbxM45J93bno-oM7mph3L1-rPa4lFKQ04wB-T9rU3uAZnBAan5g",
 			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
 				if err == nil {
@@ -389,8 +490,7 @@ func TestNew(t *testing.T) {
 				assert.Equal(t, "sd hash validation failed: calculated hash imDBfEoPQdkucAP7SGAGAbZCYsb5U3l9VFDETTJ9eQQ does not equal provided hash nYcOXyP43v9szKryn_k_4GkRr_j3STHhNSS-i1Duauo", err.Error())
 			},
 		},
-		{
-			name:  "valid token but duplicate disclosure",
+		"valid token but duplicate disclosure": {
 			token: "eyJhbGciOiAiRVMyNTYifQ.eyJfc2QiOiBbIkNyUWU3UzVrcUJBSHQtbk1ZWGdjNmJkdDJTSDVhVFkxc1VfTS1QZ2tqUEkiLCAiSnpZakg0c3ZsaUgwUjNQeUVNZmVadTZKdDY5dTVxZWhabzdGN0VQWWxTRSIsICJQb3JGYnBLdVZ1Nnh5bUphZ3ZrRnNGWEFiUm9jMkpHbEFVQTJCQTRvN2NJIiwgIlRHZjRvTGJnd2Q1SlFhSHlLVlFaVTlVZEdFMHc1cnREc3JaemZVYW9tTG8iLCAiWFFfM2tQS3QxWHlYN0tBTmtxVlI2eVoyVmE1TnJQSXZQWWJ5TXZSS0JNTSIsICJYekZyendzY002R242Q0pEYzZ2Vks4QmtNbmZHOHZPU0tmcFBJWmRBZmRFIiwgImdiT3NJNEVkcTJ4Mkt3LXc1d1BFemFrb2I5aFYxY1JEMEFUTjNvUUw5Sk0iLCAianN1OXlWdWx3UVFsaEZsTV8zSmx6TWFTRnpnbGhRRzBEcGZheVF3TFVLNCJdLCAiaXNzIjogImh0dHBzOi8vZXhhbXBsZS5jb20vaXNzdWVyIiwgImlhdCI6IDE2ODMwMDAwMDAsICJleHAiOiAxODgzMDAwMDAwLCAic3ViIjogInVzZXJfNDIiLCAibmF0aW9uYWxpdGllcyI6IFt7Ii4uLiI6ICJwRm5kamtaX1ZDem15VGE2VWpsWm8zZGgta284YUlLUWM5RGxHemhhVllvIn0sIHsiLi4uIjogIjdDZjZKa1B1ZHJ5M2xjYndIZ2VaOGtoQXYxVTFPU2xlclAwVmtCSnJXWjAifV0sICJfc2RfYWxnIjogInNoYS0yNTYiLCAiY25mIjogeyJqd2siOiB7Imt0eSI6ICJFQyIsICJjcnYiOiAiUC0yNTYiLCAieCI6ICJUQ0FFUjE5WnZ1M09IRjRqNFc0dmZTVm9ISVAxSUxpbERsczd2Q2VHZW1jIiwgInkiOiAiWnhqaVdXYlpNUUdIVldLVlE0aGJTSWlyc1ZmdWVjQ0U2dDRqVDlGMkhaUSJ9fX0.kmx687kUBiIDvKWgo2Dub-TpdCCRLZwtD7TOj4RoLsUbtFBI8sMrtH2BejXtm_P6fOAjKAVc_7LRNJFgm3PJhg~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgImdpdmVuX25hbWUiLCAiSm9obiJd~WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgImZhbWlseV9uYW1lIiwgIkRvZSJd~WyI2SWo3dE0tYTVpVlBHYm9TNXRtdlZBIiwgImVtYWlsIiwgImpvaG5kb2VAZXhhbXBsZS5jb20iXQ~WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgInBob25lX251bWJlciIsICIrMS0yMDItNTU1LTAxMDEiXQ~WyJRZ19PNjR6cUF4ZTQxMmExMDhpcm9BIiwgInBob25lX251bWJlcl92ZXJpZmllZCIsIHRydWVd~WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImFkZHJlc3MiLCB7InN0cmVldF9hZGRyZXNzIjogIjEyMyBNYWluIFN0IiwgImxvY2FsaXR5IjogIkFueXRvd24iLCAicmVnaW9uIjogIkFueXN0YXRlIiwgImNvdW50cnkiOiAiVVMifV0~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0~WyJHMDJOU3JRZmpGWFE3SW8wOXN5YWpBIiwgInVwZGF0ZWRfYXQiLCAxNTcwMDAwMDAwXQ~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgIlVTIl0~WyJuUHVvUW5rUkZxM0JJZUFtN0FuWEZBIiwgIkRFIl0~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0~",
 			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
 				if err == nil {
@@ -405,23 +505,74 @@ func TestNew(t *testing.T) {
 				}
 			},
 		},
-		{
-			name:  "valid token but xxx",
+		"valid medical credential": {
 			token: "eyJhbGciOiAiRVMyNTYifQ.eyJAY29udGV4dCI6IFsiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvdjEiLCAiaHR0cHM6Ly93M2lkLm9yZy92YWNjaW5hdGlvbi92MSJdLCAidHlwZSI6IFsiVmVyaWZpYWJsZUNyZWRlbnRpYWwiLCAiVmFjY2luYXRpb25DZXJ0aWZpY2F0ZSJdLCAiaXNzdWVyIjogImh0dHBzOi8vZXhhbXBsZS5jb20vaXNzdWVyIiwgImlzc3VhbmNlRGF0ZSI6ICIyMDIzLTAyLTA5VDExOjAxOjU5WiIsICJleHBpcmF0aW9uRGF0ZSI6ICIyMDI4LTAyLTA4VDExOjAxOjU5WiIsICJuYW1lIjogIkNPVklELTE5IFZhY2NpbmF0aW9uIENlcnRpZmljYXRlIiwgImRlc2NyaXB0aW9uIjogIkNPVklELTE5IFZhY2NpbmF0aW9uIENlcnRpZmljYXRlIiwgImNyZWRlbnRpYWxTdWJqZWN0IjogeyJfc2QiOiBbIjFWX0stOGxEUThpRlhCRlhiWlk5ZWhxUjRIYWJXQ2k1VDB5Ykl6WlBld3ciLCAiSnpqTGd0UDI5ZFAtQjN0ZDEyUDY3NGdGbUsyenk4MUhNdEJnZjZDSk5XZyIsICJSMmZHYmZBMDdaX1lsa3FtTlp5bWExeHl5eDFYc3RJaVM2QjFZYmwySlo0IiwgIlRDbXpybDdLMmdldl9kdTdwY01JeXpSTEhwLVllZy1GbF9jeHRyVXZQeGciLCAiVjdrSkJMSzc4VG1WRE9tcmZKN1p1VVBIdUtfMmNjN3laUmE0cVYxdHh3TSIsICJiMGVVc3ZHUC1PRERkRm9ZNE5semxYYzN0RHNsV0p0Q0pGNzVOdzhPal9nIiwgInpKS19lU01YandNOGRYbU1aTG5JOEZHTTA4ekozX3ViR2VFTUotNVRCeTAiXSwgInZhY2NpbmUiOiB7Il9zZCI6IFsiMWNGNWhMd2toTU5JYXFmV0pyWEk3Tk1XZWRMLTlmNlkyUEE1MnlQalNaSSIsICJIaXk2V1d1ZUxENWJuMTYyOTh0UHY3R1hobWxkTURPVG5CaS1DWmJwaE5vIiwgIkxiMDI3cTY5MWpYWGwtakM3M3ZpOGViT2o5c214M0MtX29nN2dBNFRCUUUiXSwgInR5cGUiOiAiVmFjY2luZSJ9LCAicmVjaXBpZW50IjogeyJfc2QiOiBbIjFsU1FCTlkyNHEwVGg2T0d6dGhxLTctNGw2Y0FheHJZWE9HWnBlV19sbkEiLCAiM256THE4MU0yb04wNndkdjFzaEh2T0VKVnhaNUtMbWREa0hFREpBQldFSSIsICJQbjFzV2kwNkc0TEpybm4tX1JUMFJiTV9IVGR4blBKUXVYMmZ6V3ZfSk9VIiwgImxGOXV6ZHN3N0hwbEdMYzcxNFRyNFdPN01HSnphN3R0N1FGbGVDWDRJdHciXSwgInR5cGUiOiAiVmFjY2luZVJlY2lwaWVudCJ9LCAidHlwZSI6ICJWYWNjaW5hdGlvbkV2ZW50In0sICJfc2RfYWxnIjogInNoYS0yNTYiLCAiY25mIjogeyJqd2siOiB7Imt0eSI6ICJFQyIsICJjcnYiOiAiUC0yNTYiLCAieCI6ICJUQ0FFUjE5WnZ1M09IRjRqNFc0dmZTVm9ISVAxSUxpbERsczd2Q2VHZW1jIiwgInkiOiAiWnhqaVdXYlpNUUdIVldLVlE0aGJTSWlyc1ZmdWVjQ0U2dDRqVDlGMkhaUSJ9fX0.l7byWDsTtDOjFbWS4lko-3mkeeZwzUYw6ZicrJurES_gzs6EK_svPiVwj5g6evb_nmLWpK2_cXQ_J0cjH0XnGw~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgImF0Y0NvZGUiLCAiSjA3QlgwMyJd~WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgIm1lZGljaW5hbFByb2R1Y3ROYW1lIiwgIkNPVklELTE5IFZhY2NpbmUgTW9kZXJuYSJd~WyI2SWo3dE0tYTVpVlBHYm9TNXRtdlZBIiwgIm1hcmtldGluZ0F1dGhvcml6YXRpb25Ib2xkZXIiLCAiTW9kZXJuYSBCaW90ZWNoIl0~WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgIm5leHRWYWNjaW5hdGlvbkRhdGUiLCAiMjAyMS0wOC0xNlQxMzo0MDoxMloiXQ~WyJRZ19PNjR6cUF4ZTQxMmExMDhpcm9BIiwgImNvdW50cnlPZlZhY2NpbmF0aW9uIiwgIkdFIl0~WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImRhdGVPZlZhY2NpbmF0aW9uIiwgIjIwMjEtMDYtMjNUMTM6NDA6MTJaIl0~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgIm9yZGVyIiwgIjMvMyJd~WyJHMDJOU3JRZmpGWFE3SW8wOXN5YWpBIiwgImdlbmRlciIsICJGZW1hbGUiXQ~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgImJpcnRoRGF0ZSIsICIxOTYxLTA4LTE3Il0~WyJuUHVvUW5rUkZxM0JJZUFtN0FuWEZBIiwgImdpdmVuTmFtZSIsICJNYXJpb24iXQ~WyI1YlBzMUlxdVpOYTBoa2FGenp6Wk53IiwgImZhbWlseU5hbWUiLCAiTXVzdGVybWFubiJd~WyI1YTJXMF9OcmxFWnpmcW1rXzdQcS13IiwgImFkbWluaXN0ZXJpbmdDZW50cmUiLCAiUHJheGlzIFNvbW1lcmdhcnRlbiJd~WyJ5MXNWVTV3ZGZKYWhWZGd3UGdTN1JRIiwgImJhdGNoTnVtYmVyIiwgIjE2MjYzODI3MzYiXQ~WyJIYlE0WDhzclZXM1FEeG5JSmRxeU9BIiwgImhlYWx0aFByb2Zlc3Npb25hbCIsICI4ODMxMTAwMDAwMTUzNzYiXQ~",
 			validate: func(t *testing.T, sdJwt *go_sd_jwt.SdJwt, err error) {
-				require.Nil(t, err, "must not error")
+				if err != nil {
+					t.Fatal("must not error:", err)
+				}
 				var disclosedClaims map[string]any
 				disclosedClaims, err = sdJwt.GetDisclosedClaims()
-				require.Nil(t, err, "must not error")
-				b, err := json.Marshal(disclosedClaims)
-				require.Nil(t, err, "must not error")
-				fmt.Println(string(b))
+				if err != nil {
+					t.Fatal("must not error:", err)
+				}
+
+				if diff := cmp.Diff(map[string]any{
+					"@context": []any{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://w3id.org/vaccination/v1",
+					},
+					"cnf": map[string]any{
+						"jwk": map[string]any{
+							"crv": "P-256",
+							"kty": "EC",
+							"x":   "TCAER19Zvu3OHF4j4W4vfSVoHIP1ILilDls7vCeGemc",
+							"y":   "ZxjiWWbZMQGHVWKVQ4hbSIirsVfuecCE6t4jT9F2HZQ",
+						},
+					},
+					"credentialSubject": map[string]any{
+						"administeringCentre":  "Praxis Sommergarten",
+						"batchNumber":          "1626382736",
+						"countryOfVaccination": "GE",
+						"dateOfVaccination":    "2021-06-23T13:40:12Z",
+						"healthProfessional":   "883110000015376",
+						"nextVaccinationDate":  "2021-08-16T13:40:12Z",
+						"order":                "3/3",
+						"recipient": map[string]any{
+							"birthDate":  "1961-08-17",
+							"familyName": "Mustermann",
+							"gender":     "Female",
+							"givenName":  "Marion",
+							"type":       "VaccineRecipient",
+						},
+						"type": "VaccinationEvent",
+						"vaccine": map[string]any{
+							"atcCode":                      "J07BX03",
+							"marketingAuthorizationHolder": "Moderna Biotech",
+							"medicinalProductName":         "COVID-19 Vaccine Moderna",
+							"type":                         "Vaccine",
+						},
+					},
+					"description":    "COVID-19 Vaccination Certificate",
+					"expirationDate": "2028-02-08T11:01:59Z",
+					"issuanceDate":   "2023-02-09T11:01:59Z",
+					"issuer":         "https://example.com/issuer",
+					"name":           "COVID-19 Vaccination Certificate",
+					"type": []any{
+						"VerifiableCredential",
+						"VaccinationCertificate",
+					},
+				}, disclosedClaims, cmpopts.SortSlices(func(a, b string) int {
+					return strings.Compare(a, b)
+				})); diff != "" {
+					t.Errorf("result mismatch (-want +got):\n%s", diff)
+				}
 			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			sdJwt, err := go_sd_jwt.New(tt.token)
 			tt.validate(t, sdJwt, err)
 		})
@@ -446,7 +597,9 @@ func TestNewFromComponents(t *testing.T) {
 
 	sdJwt, err := go_sd_jwt.NewFromComponents(token["protected"].(string), token["payload"].(string), token["signature"].(string), token["disclosures"].([]string), nil)
 
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("error should be nil: %s", err.Error())
+	}
 	require.NotNil(t, sdJwt)
 	assert.NotEmpty(t, sdJwt.Head)
 	assert.NotEmpty(t, sdJwt.Body)
@@ -456,7 +609,9 @@ func TestNewFromComponents(t *testing.T) {
 	assert.Nil(t, sdJwt.KbJwt)
 
 	claims, err := sdJwt.GetDisclosedClaims()
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("error should be nil: %s", err.Error())
+	}
 
 	b, _ := json.Marshal(claims)
 	t.Log(string(b))
@@ -518,7 +673,9 @@ func TestNewFromComponentsKbJwt(t *testing.T) {
 		}
 
 		claims, err := sdJwt.GetDisclosedClaims()
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("error should be nil: %s", err.Error())
+		}
 
 		b, _ := json.Marshal(claims)
 		t.Log(string(b))
