@@ -3,10 +3,11 @@ package utils
 import (
 	"encoding/json"
 	"errors"
-	"github.com/MichaelFraser99/go-sd-jwt/disclosure"
-	"github.com/MichaelFraser99/go-sd-jwt/internal/model"
 	"reflect"
 	"strings"
+
+	"github.com/MichaelFraser99/go-sd-jwt/disclosure"
+	"github.com/MichaelFraser99/go-sd-jwt/internal/model"
 )
 
 func ValidateArrayClaims(s *[]any, currentDisclosure *disclosure.Disclosure, base64HashedDisclosure string) (found bool, err error) {
@@ -15,7 +16,7 @@ func ValidateArrayClaims(s *[]any, currentDisclosure *disclosure.Disclosure, bas
 		switch reflect.TypeOf(v).Kind() {
 
 		case reflect.Slice:
-			found, err = ValidateArrayClaims(PointerSlice(v.([]any)), currentDisclosure, base64HashedDisclosure)
+			found, err = ValidateArrayClaims(Pointer(v.([]any)), currentDisclosure, base64HashedDisclosure)
 			if err != nil {
 				return false, err
 			}
@@ -39,7 +40,7 @@ func ValidateArrayClaims(s *[]any, currentDisclosure *disclosure.Disclosure, bas
 				}
 			}
 
-			found, err = ValidateSDClaims(PointerMap(v.(map[string]any)), currentDisclosure, base64HashedDisclosure)
+			found, err = ValidateSDClaims(Pointer(v.(map[string]any)), currentDisclosure, base64HashedDisclosure)
 			if err != nil {
 				return false, err
 			}
@@ -70,12 +71,12 @@ func ValidateSDClaims(values *map[string]any, currentDisclosure *disclosure.Disc
 	for k, v := range *values {
 		if k != "_sd" && k != "_sd_alg" {
 			if reflect.TypeOf(v).Kind() == reflect.Slice {
-				found, err = ValidateArrayClaims(PointerSlice(v.([]any)), currentDisclosure, base64HashedDisclosure)
+				found, err = ValidateArrayClaims(Pointer(v.([]any)), currentDisclosure, base64HashedDisclosure)
 				if err != nil {
 					return false, err
 				}
 			} else if reflect.TypeOf(v).Kind() == reflect.Map {
-				found, err = ValidateSDClaims(PointerMap(v.(map[string]any)), currentDisclosure, base64HashedDisclosure)
+				found, err = ValidateSDClaims(Pointer(v.(map[string]any)), currentDisclosure, base64HashedDisclosure)
 				if err != nil {
 					return found, err
 				}
@@ -241,18 +242,8 @@ func CheckForKbJwt(candidate string) *string {
 }
 
 // Pointer is a helper method that returns a pointer to the given value.
-func Pointer[T comparable](t T) *T {
+func Pointer[T any](t T) *T {
 	return &t
-}
-
-// PointerMap is a helper method that returns a pointer to the given map.
-func PointerMap(m map[string]any) *map[string]any {
-	return &m
-}
-
-// PointerSlice is a helper method that returns a pointer to the given slice.
-func PointerSlice(s []any) *[]any {
-	return &s
 }
 
 func CopyMap(m map[string]any) map[string]any {

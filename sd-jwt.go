@@ -237,7 +237,7 @@ func (s *SdJwt) GetDisclosedClaims() (map[string]any, error) {
 			base64HashedDisclosureBytes := make([]byte, base64.RawURLEncoding.EncodedLen(len(hashedDisclosures)))
 			base64.RawURLEncoding.Encode(base64HashedDisclosureBytes, hashedDisclosures)
 
-			found, err := utils.ValidateSDClaims(utils.PointerMap(bodyMap), &d, string(base64HashedDisclosureBytes))
+			found, err := utils.ValidateSDClaims(utils.Pointer(bodyMap), &d, string(base64HashedDisclosureBytes))
 			if err != nil {
 				return nil, err
 			}

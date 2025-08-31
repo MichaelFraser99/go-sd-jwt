@@ -8,7 +8,7 @@ For more information on SD-JWTs, see the [Selective Disclosure JWTs Specificatio
 Also see: [sdjwt.org](https://sdjwt.org/) for a playground powered by this module
 
 ## Requirements
-- Go 1.21 or higher
+- Go 1.23 or higher
 
 ## Installation
 ```bash
@@ -18,23 +18,9 @@ go get github.com/MichaelFraser99/go-sd-jwt
 ## Functions
 ### Pointer
 ```go
-func Pointer[T comparable](t T) *T
+func Pointer[T any](t T) *T
 ```
 Pointer is a helper method that returns a pointer to the given value.
-
-
-### PointerMap
-```go
-func PointerMap(m map[string]any) *map[string]any
-```
-PointerMap is a helper method that returns a pointer to the given map.
-
-### PointerSlice
-```go
-func PointerSlice(s []any) *[]any
-```
-PointerSlice is a helper method that returns a pointer to the given slice.
-
 
 ## Types
 ### Disclosure
@@ -112,7 +98,7 @@ name for a non-array digest)
 func (s *SdJwt) AddKeyBindingJwt(signer crypto.Signer, h crypto.Hash, alg, aud, nonce string) error
 ```
 AddKeyBindingJwt signs and adds a key binding jwt to the sd-jwt object
-complete with sd_hash claim for the currently specifed disclosures
+complete with sd_hash claim for the currently specified disclosures
 
 ```go
 func (s *SdJwt) Token() (*string, error)
