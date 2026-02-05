@@ -1,6 +1,6 @@
 module github.com/MichaelFraser99/go-sd-jwt
 
-go 1.23.2
+go 1.24.13
 
 require (
 	github.com/MichaelFraser99/go-jose v0.9.0
