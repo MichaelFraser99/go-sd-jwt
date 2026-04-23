@@ -164,7 +164,11 @@ func (s *SdJwt) AddKeyBindingJwt(signer crypto.Signer, h crypto.Hash, alg, aud, 
 
 	signInput := string(b64KbHead) + "." + string(b64KbBody)
 
-	sig, err := signer.Sign(rand.Reader, []byte(signInput), nil)
+	signHasher := h.New()
+	signHasher.Write([]byte(signInput))
+	digest := signHasher.Sum(nil)
+
+	sig, err := signer.Sign(rand.Reader, digest, h)
 	if err != nil {
 		return fmt.Errorf("error signing kb-jwt: %w", err)
 	}
