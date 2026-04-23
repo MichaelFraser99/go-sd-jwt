@@ -20,7 +20,7 @@ func NewFromToken(token string) (*KbJwt, error) {
 	kbjc := strings.Split(token, ".")
 
 	if len(kbjc) != 3 {
-		return nil, fmt.Errorf("%wkb jwt is in an invalid format", e.ErrInvalidToken)
+		return nil, fmt.Errorf("%wkb-jwt is in an invalid format", e.ErrInvalidToken)
 	}
 
 	//head
@@ -35,7 +35,7 @@ func NewFromToken(token string) (*KbJwt, error) {
 	}
 
 	if kbh["typ"] != "kb+jwt" {
-		return nil, fmt.Errorf("%wkb jwt is not of type kb+jwt", e.ErrInvalidToken)
+		return nil, fmt.Errorf("%wkb-jwt is not of type kb+jwt", e.ErrInvalidToken)
 	}
 
 	//body

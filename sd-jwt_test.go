@@ -487,7 +487,7 @@ func TestNew(t *testing.T) {
 				if sdJwt != nil {
 					t.Error("sdJwt should be nil")
 				}
-				assert.Equal(t, "sd hash validation failed: calculated hash imDBfEoPQdkucAP7SGAGAbZCYsb5U3l9VFDETTJ9eQQ does not equal provided hash nYcOXyP43v9szKryn_k_4GkRr_j3STHhNSS-i1Duauo", err.Error())
+				assert.Equal(t, "invalid token: sd hash validation failed: calculated hash imDBfEoPQdkucAP7SGAGAbZCYsb5U3l9VFDETTJ9eQQ does not equal provided hash nYcOXyP43v9szKryn_k_4GkRr_j3STHhNSS-i1Duauo", err.Error())
 			},
 		},
 		"valid token but duplicate disclosure": {
@@ -500,7 +500,7 @@ func TestNew(t *testing.T) {
 				if sdJwt != nil {
 					t.Error("sdJwt should be nil: ", sdJwt)
 				}
-				if err.Error() != "failed to validate disclosures: duplicate disclosure found" {
+				if err.Error() != "invalid token: failed to validate disclosures: duplicate disclosure found" {
 					t.Error("error message is not correct: ", err.Error())
 				}
 			},
@@ -729,7 +729,7 @@ func TestNewFromComponentsWrongKbJwt(t *testing.T) {
 	if sdJwt != nil {
 		t.Error("sdJwt should be nil")
 	}
-	assert.Equal(t, "sd hash validation failed: calculated hash nYcOXyP43v9szKryn_k_4GkRr_j3STHhNSS-i1Duauo does not equal provided hash imDBfEoPQdkucAP7SGAGAbZCYsb5U3l9VFDETTJ9eQQ", err.Error())
+	assert.Equal(t, "invalid token: sd hash validation failed: calculated hash nYcOXyP43v9szKryn_k_4GkRr_j3STHhNSS-i1Duauo does not equal provided hash imDBfEoPQdkucAP7SGAGAbZCYsb5U3l9VFDETTJ9eQQ", err.Error())
 }
 
 func TestSdJwt_AddKeyBindingJwt(t *testing.T) {
@@ -805,7 +805,7 @@ func TestNew_AllDuplicateDigestScenarios(t *testing.T) {
 			t.Log("iteration: ", i)
 			t.Error("sdJwt should be nil: ", sdJwt)
 		}
-		if err.Error() != "failed to validate digests: duplicate digest found" {
+		if err.Error() != "invalid token: failed to validate digests: duplicate digest found" {
 			t.Log("iteration: ", i)
 			t.Error("error message is not correct: ", err.Error())
 		}
@@ -813,7 +813,7 @@ func TestNew_AllDuplicateDigestScenarios(t *testing.T) {
 }
 
 func TestSDJwtWithoutSD(t *testing.T) {
-	testJwt := "eyJ0eXAiOiJzZCtqd3QiLCJhbGciOiJFUzI1NiJ9.eyJmaXJzdG5hbWUiOiJKb2huIiwibGFzdG5hbWUiOiJEb2UiLCJzc24iOiIxMjMtNDUtNjc4OSIsImlkIjoiMTIzNCIsIl9zZF9hbGciOiJTSEEtMjU2In0.sUA_aYeA4YNQ1Paxna30VLAce1KdxvYMPEIduCwSD6X_Z56ZrBY5fbUBM5JVQ3vceS86CCghr8wkemdhQYRdfA~"
+	testJwt := "eyJ0eXAiOiJzZCtqd3QiLCJhbGciOiJFUzI1NiJ9.eyJmaXJzdG5hbWUiOiJKb2huIiwibGFzdG5hbWUiOiJEb2UiLCJzc24iOiIxMjMtNDUtNjc4OSIsImlkIjoiMTIzNCIsIl9zZF9hbGciOiJzaGEtMjU2In0.sUA_aYeA4YNQ1Paxna30VLAce1KdxvYMPEIduCwSD6X_Z56ZrBY5fbUBM5JVQ3vceS86CCghr8wkemdhQYRdfA~"
 	sdJwt, err := go_sd_jwt.New(testJwt)
 
 	if err != nil {

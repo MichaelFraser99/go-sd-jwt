@@ -96,7 +96,7 @@ func (s *SdJwt) AddKeyBindingJwt(signer crypto.Signer, h crypto.Hash, alg, aud, 
 	}
 
 	sdAlg, ok := s.Body["_sd_alg"].(string)
-	if (ok && !strings.EqualFold(sdAlg, h.String())) || (!ok && strings.ToLower(h.String()) != "sha-256") {
+	if (ok && sdAlg != strings.ToLower(h.String())) || (!ok && strings.ToLower(h.String()) != "sha-256") {
 		return errors.New("key binding jwt hashing algorithm does not match the hashing algorithm specified in the sd-jwt - if sd-jwt does not specify a hashing algorithm, sha-256 is selected by default")
 	}
 
@@ -174,7 +174,7 @@ func (s *SdJwt) AddKeyBindingJwt(signer crypto.Signer, h crypto.Hash, alg, aud, 
 
 func GetHash(hashString string) (hash.Hash, error) {
 	var h hash.Hash
-	switch strings.ToLower(hashString) {
+	switch hashString {
 	case "sha-256", "":
 		// default to sha-256
 		h = sha256.New()
@@ -272,13 +272,13 @@ func validateJwt(token string) (*SdJwt, error) {
 
 	sections := strings.Split(token, "~")
 	if len(sections) < 2 {
-		return nil, fmt.Errorf("%wtoken has no specified disclosures", e.ErrInvalidToken)
+		return nil, fmt.Errorf("%wno specified disclosures", e.ErrInvalidToken)
 	}
 
 	tokenSections := strings.Split(sections[0], ".")
 
 	if len(tokenSections) != 3 {
-		return nil, fmt.Errorf("%wtoken is not a valid JWT", e.ErrInvalidToken)
+		return nil, fmt.Errorf("%wnot a valid JWT", e.ErrInvalidToken)
 	}
 
 	jwtHead := map[string]any{}
@@ -300,7 +300,7 @@ func validateJwt(token string) (*SdJwt, error) {
 		kbJwt := utils.CheckForKbJwt(sections[len(sections)-1])
 
 		if kbJwt == nil {
-			return nil, fmt.Errorf("%wif no kb-jwt is provided, the last disclosure must be followed by a ~", e.ErrInvalidToken)
+			return nil, fmt.Errorf("%wlast disclosure must be followed by a ~ when no kb-jwt is provided", e.ErrInvalidToken)
 		}
 
 		sections = sections[:len(sections)-1]
