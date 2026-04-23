@@ -8,7 +8,7 @@ For more information on SD-JWTs, see the [Selective Disclosure JWTs Specificatio
 Also see: [sdjwt.org](https://sdjwt.org/) for a playground powered by this module
 
 ## Requirements
-- Go 1.21 or higher
+- Go 1.24 or higher
 
 ## Installation
 ```bash
