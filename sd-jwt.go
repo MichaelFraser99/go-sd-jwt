@@ -31,6 +31,8 @@ type SdJwt struct {
 	Signature   string
 	KbJwt       *kbjwt.KbJwt
 	Disclosures []disclosure.Disclosure
+	rawHead     string
+	rawPayload  string
 }
 
 // New
@@ -324,6 +326,8 @@ func validateJwt(token string) (*SdJwt, error) {
 	}
 
 	sdJwt.Head = jwtHead
+	sdJwt.rawHead = tokenSections[0]
+	sdJwt.rawPayload = tokenSections[1]
 
 	sdJwt.Signature = tokenSections[2]
 

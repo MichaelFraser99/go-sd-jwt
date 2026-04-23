@@ -119,6 +119,39 @@ func (s *SdJwt) Token() (*string, error)
 ```
 Token returns the current form of the sd-jwt object in string token format
 
+### Verification
+```go
+func (s *SdJwt) Verify(opts VerificationOptions) error
+```
+Verify performs cryptographic and semantic verification of a parsed SD-JWT. All checks are opt-in via `VerificationOptions`:
+
+```go
+type VerificationOptions struct {
+    IssuerKey            crypto.PublicKey // verify issuer JWT signature
+    ValidateExpiry       bool            // check exp claim against current time
+    ValidateNotBefore    bool            // check nbf claim against current time
+    ExpectedAudience     *string         // verify KB-JWT aud claim matches
+    ExpectedNonce        *string         // verify KB-JWT nonce claim matches
+    VerifyKBJwtSignature bool            // verify KB-JWT signature using cnf.jwk
+}
+```
+
+Example:
+```go
+sdJwt, err := go_sd_jwt.New(token)
+
+err = sdJwt.Verify(go_sd_jwt.VerificationOptions{
+    IssuerKey:            issuerPublicKey,
+    ValidateExpiry:       true,
+    ValidateNotBefore:    true,
+    ExpectedAudience:     &expectedAud,
+    ExpectedNonce:        &expectedNonce,
+    VerifyKBJwtSignature: true,
+})
+```
+
+Issuer signature verification supports ES256/384/512, RS256/384/512, and PS256/384/512 via [go-jose](https://github.com/MichaelFraser99/go-jose). KB-JWT signature verification extracts the holder's public key from the `cnf.jwk` claim in the issuer JWT body.
+
 ### Usage
 For an example e2e flow of an SD Jwt see the e2e_test
 Contains examples of:
