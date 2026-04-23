@@ -1,0 +1,8 @@
+version: "2"
+linters:
+  enable:
+    - gosec
+  settings:
+    gosec:
+      excludes:
+        - G101
