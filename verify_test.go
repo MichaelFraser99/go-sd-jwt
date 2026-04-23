@@ -55,7 +55,8 @@ func TestVerify_IssuerSignature(t *testing.T) {
 		otherSigner, err := jws.GetSigner(model.ES256, nil)
 		require.NoError(t, err)
 		err = sdJwt.Verify(VerificationOptions{IssuerKey: otherSigner.Public()})
-		assert.Error(t, err)
+		require.Error(t, err)
+		assert.Equal(t, "invalid token: signature verification failed", err.Error())
 	})
 
 	t.Run("no key skips verification", func(t *testing.T) {
@@ -77,8 +78,8 @@ func TestVerify_Expiry(t *testing.T) {
 		require.NoError(t, err)
 
 		err = sdJwt.Verify(VerificationOptions{ValidateExpiry: true})
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "expired")
+		require.Error(t, err)
+		assert.Equal(t, "invalid token: token has expired", err.Error())
 	})
 
 	t.Run("valid expiry", func(t *testing.T) {
@@ -125,8 +126,8 @@ func TestVerify_NotBefore(t *testing.T) {
 		require.NoError(t, err)
 
 		err = sdJwt.Verify(VerificationOptions{ValidateNotBefore: true})
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "not yet valid")
+		require.Error(t, err)
+		assert.Equal(t, "invalid token: token is not yet valid", err.Error())
 	})
 
 	t.Run("already valid", func(t *testing.T) {
@@ -200,8 +201,8 @@ func TestVerify_KBJwtAudienceAndNonce(t *testing.T) {
 		err := sdJwtWithKb.Verify(VerificationOptions{
 			ExpectedAudience: utils.Pointer("https://wrong.example.com"),
 		})
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "audience mismatch")
+		require.Error(t, err)
+		assert.Equal(t, "invalid token: kb-jwt audience mismatch: expected https://wrong.example.com", err.Error())
 	})
 
 	t.Run("matching nonce", func(t *testing.T) {
@@ -215,8 +216,8 @@ func TestVerify_KBJwtAudienceAndNonce(t *testing.T) {
 		err := sdJwtWithKb.Verify(VerificationOptions{
 			ExpectedNonce: utils.Pointer("wrong"),
 		})
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "nonce mismatch")
+		require.Error(t, err)
+		assert.Equal(t, "invalid token: kb-jwt nonce mismatch: expected wrong", err.Error())
 	})
 
 	t.Run("kb-jwt signature verification", func(t *testing.T) {
