@@ -841,6 +841,7 @@ func TestGetHash_CaseSensitive(t *testing.T) {
 		if err == nil {
 			t.Fatal("should reject uppercase SHA-256")
 		}
+		assert.Equal(t, "unsupported _sd_alg: SHA-256", err.Error())
 	})
 
 	t.Run("mixed case Sha-256 rejected", func(t *testing.T) {
@@ -848,6 +849,7 @@ func TestGetHash_CaseSensitive(t *testing.T) {
 		if err == nil {
 			t.Fatal("should reject mixed case Sha-256")
 		}
+		assert.Equal(t, "unsupported _sd_alg: Sha-256", err.Error())
 	})
 }
 
