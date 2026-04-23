@@ -85,16 +85,7 @@ func (s *SdJwt) verifyIssuerSignature(issuerKey crypto.PublicKey) error {
 		return fmt.Errorf("%wfailed to create signature validator: %w", e.ErrInvalidToken, err)
 	}
 
-	headBytes, err := json.Marshal(s.Head)
-	if err != nil {
-		return fmt.Errorf("failed to marshal header for verification: %w", err)
-	}
-	bodyBytes, err := json.Marshal(s.Body)
-	if err != nil {
-		return fmt.Errorf("failed to marshal body for verification: %w", err)
-	}
-
-	signInput := base64.RawURLEncoding.EncodeToString(headBytes) + "." + base64.RawURLEncoding.EncodeToString(bodyBytes)
+	signInput := s.rawHead + "." + s.rawPayload
 
 	sigBytes, err := base64.RawURLEncoding.DecodeString(s.Signature)
 	if err != nil {
