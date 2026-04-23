@@ -138,3 +138,35 @@ func TestDisclosure_Hash(t *testing.T) {
 		t.Errorf("unexpected hash result: %s", string(arrayHash))
 	}
 }
+
+func TestNewFromDisclosure_NonStringSalt(t *testing.T) {
+	t.Run("non-string salt in object disclosure", func(t *testing.T) {
+		_, err := NewFromDisclosure("WzEyMywia2V5IiwidmFsdWUiXQ")
+		if err == nil {
+			t.Fatal("expected error for non-string salt")
+		}
+		if err.Error() != "invalid disclosure: salt value is not a string" {
+			t.Errorf("unexpected error: %s", err.Error())
+		}
+	})
+
+	t.Run("non-string key in object disclosure", func(t *testing.T) {
+		_, err := NewFromDisclosure("WyJzYWx0Iiw0NTYsInZhbHVlIl0")
+		if err == nil {
+			t.Fatal("expected error for non-string key")
+		}
+		if err.Error() != "invalid disclosure: key value is not a string" {
+			t.Errorf("unexpected error: %s", err.Error())
+		}
+	})
+
+	t.Run("non-string salt in array disclosure", func(t *testing.T) {
+		_, err := NewFromDisclosure("WzEyMywidmFsdWUiXQ")
+		if err == nil {
+			t.Fatal("expected error for non-string salt")
+		}
+		if err.Error() != "invalid disclosure: salt value is not a string" {
+			t.Errorf("unexpected error: %s", err.Error())
+		}
+	})
+}
