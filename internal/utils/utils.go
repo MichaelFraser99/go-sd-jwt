@@ -11,6 +11,9 @@ import (
 
 func ValidateArrayClaims(s *[]any, currentDisclosure *disclosure.Disclosure, base64HashedDisclosure string) (found bool, err error) {
 	for i, v := range *s {
+		if v == nil {
+			continue
+		}
 
 		switch reflect.TypeOf(v).Kind() {
 
@@ -68,7 +71,7 @@ func ValidateSDClaims(values *map[string]any, currentDisclosure *disclosure.Disc
 	}
 
 	for k, v := range *values {
-		if k != "_sd" && k != "_sd_alg" {
+		if k != "_sd" && k != "_sd_alg" && v != nil {
 			if reflect.TypeOf(v).Kind() == reflect.Slice {
 				found, err = ValidateArrayClaims(PointerSlice(v.([]any)), currentDisclosure, base64HashedDisclosure)
 				if err != nil {
@@ -91,6 +94,9 @@ func ValidateSDClaims(values *map[string]any, currentDisclosure *disclosure.Disc
 func GetDigests(m map[string]any) []any {
 	var digests []any
 	for k, v := range m {
+		if v == nil {
+			continue
+		}
 		if reflect.TypeOf(v).Kind() == reflect.Map {
 			digests = append(digests, GetDigests(v.(map[string]any))...)
 		} else if k == "_sd" {
@@ -114,6 +120,10 @@ func GetDigests(m map[string]any) []any {
 func StripSDClaimsFromSlice(input []any) []any {
 	var output []any
 	for _, v := range input {
+		if v == nil {
+			output = append(output, v)
+			continue
+		}
 		switch reflect.TypeOf(v).Kind() {
 		case reflect.Map:
 			strippedValue := StripSDClaims(v.(map[string]any))
@@ -140,6 +150,10 @@ func StripSDClaims(body map[string]any) map[string]any {
 	omit := true
 	bodyMap := make(map[string]any)
 	for k, v := range body {
+		if v == nil {
+			bodyMap[k] = v
+			continue
+		}
 		switch reflect.TypeOf(v).Kind() {
 		case reflect.Map:
 			strippedValue := StripSDClaims(v.(map[string]any))

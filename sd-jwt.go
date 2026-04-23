@@ -96,7 +96,11 @@ func (s *SdJwt) AddKeyBindingJwt(signer crypto.Signer, h crypto.Hash, alg, aud, 
 	}
 
 	sdAlg, ok := s.Body["_sd_alg"].(string)
-	if (ok && !strings.EqualFold(sdAlg, h.String())) || (!ok && strings.ToLower(h.String()) != "sha-256") {
+	ianaName, err := hashToIANAName(h)
+	if err != nil {
+		return err
+	}
+	if (ok && sdAlg != ianaName) || (!ok && ianaName != "sha-256") {
 		return errors.New("key binding jwt hashing algorithm does not match the hashing algorithm specified in the sd-jwt - if sd-jwt does not specify a hashing algorithm, sha-256 is selected by default")
 	}
 
@@ -174,7 +178,7 @@ func (s *SdJwt) AddKeyBindingJwt(signer crypto.Signer, h crypto.Hash, alg, aud, 
 
 func GetHash(hashString string) (hash.Hash, error) {
 	var h hash.Hash
-	switch strings.ToLower(hashString) {
+	switch hashString {
 	case "sha-256", "":
 		// default to sha-256
 		h = sha256.New()
@@ -200,6 +204,33 @@ func GetHash(hashString string) (hash.Hash, error) {
 		return nil, errors.New("unsupported _sd_alg: " + hashString)
 	}
 	return h, nil
+}
+
+func hashToIANAName(h crypto.Hash) (string, error) {
+	switch h {
+	case crypto.SHA256:
+		return "sha-256", nil
+	case crypto.SHA224:
+		return "sha-224", nil
+	case crypto.SHA512:
+		return "sha-512", nil
+	case crypto.SHA384:
+		return "sha-384", nil
+	case crypto.SHA512_224:
+		return "sha-512/224", nil
+	case crypto.SHA512_256:
+		return "sha-512/256", nil
+	case crypto.SHA3_224:
+		return "sha3-224", nil
+	case crypto.SHA3_256:
+		return "sha3-256", nil
+	case crypto.SHA3_384:
+		return "sha3-384", nil
+	case crypto.SHA3_512:
+		return "sha3-512", nil
+	default:
+		return "", fmt.Errorf("unsupported hash algorithm: %s", h.String())
+	}
 }
 
 // GetDisclosedClaims returns the claims that were disclosed in the token or included as plaintext values.
@@ -272,13 +303,13 @@ func validateJwt(token string) (*SdJwt, error) {
 
 	sections := strings.Split(token, "~")
 	if len(sections) < 2 {
-		return nil, fmt.Errorf("%wtoken has no specified disclosures", e.ErrInvalidToken)
+		return nil, fmt.Errorf("%wno specified disclosures", e.ErrInvalidToken)
 	}
 
 	tokenSections := strings.Split(sections[0], ".")
 
 	if len(tokenSections) != 3 {
-		return nil, fmt.Errorf("%wtoken is not a valid JWT", e.ErrInvalidToken)
+		return nil, fmt.Errorf("%wnot a valid JWT", e.ErrInvalidToken)
 	}
 
 	jwtHead := map[string]any{}
@@ -300,7 +331,7 @@ func validateJwt(token string) (*SdJwt, error) {
 		kbJwt := utils.CheckForKbJwt(sections[len(sections)-1])
 
 		if kbJwt == nil {
-			return nil, fmt.Errorf("%wif no kb-jwt is provided, the last disclosure must be followed by a ~", e.ErrInvalidToken)
+			return nil, fmt.Errorf("%wlast disclosure must be followed by a ~ when no kb-jwt is provided", e.ErrInvalidToken)
 		}
 
 		sections = sections[:len(sections)-1]
