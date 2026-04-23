@@ -826,7 +826,24 @@ func TestSdJwt_AddKeyBindingJwt_SignatureVerifiable(t *testing.T) {
 		t.Fatalf("signature validation error: %s", err.Error())
 	}
 	if !valid {
-		t.Error("kb-jwt signature should be valid but verification failed")
+		t.Fatal("kb-jwt signature should be valid but verification failed")
+	}
+
+	wrongSigner, err := jws.GetSigner(model.ES256, nil)
+	if err != nil {
+		t.Fatalf("failed to get wrong signer: %s", err.Error())
+	}
+	wrongValidator, err := jws.GetValidator(wrongSigner.Alg(), wrongSigner.Public())
+	if err != nil {
+		t.Fatalf("failed to create wrong validator: %s", err.Error())
+	}
+
+	valid, err = wrongValidator.ValidateSignature([]byte(kbSignInput), kbSigBytes)
+	if err != nil {
+		t.Fatalf("signature validation error: %s", err.Error())
+	}
+	if valid {
+		t.Fatal("kb-jwt signature should be invalid when verified with wrong key")
 	}
 }
 
