@@ -487,7 +487,7 @@ func TestNew(t *testing.T) {
 				if sdJwt != nil {
 					t.Error("sdJwt should be nil")
 				}
-				assert.Equal(t, "sd hash validation failed: calculated hash imDBfEoPQdkucAP7SGAGAbZCYsb5U3l9VFDETTJ9eQQ does not equal provided hash nYcOXyP43v9szKryn_k_4GkRr_j3STHhNSS-i1Duauo", err.Error())
+				assert.Equal(t, "invalid token: sd hash validation failed: calculated hash imDBfEoPQdkucAP7SGAGAbZCYsb5U3l9VFDETTJ9eQQ does not equal provided hash nYcOXyP43v9szKryn_k_4GkRr_j3STHhNSS-i1Duauo", err.Error())
 			},
 		},
 		"valid token but duplicate disclosure": {
@@ -500,7 +500,7 @@ func TestNew(t *testing.T) {
 				if sdJwt != nil {
 					t.Error("sdJwt should be nil: ", sdJwt)
 				}
-				if err.Error() != "failed to validate disclosures: duplicate disclosure found" {
+				if err.Error() != "invalid token: failed to validate disclosures: duplicate disclosure found" {
 					t.Error("error message is not correct: ", err.Error())
 				}
 			},
@@ -729,7 +729,7 @@ func TestNewFromComponentsWrongKbJwt(t *testing.T) {
 	if sdJwt != nil {
 		t.Error("sdJwt should be nil")
 	}
-	assert.Equal(t, "sd hash validation failed: calculated hash nYcOXyP43v9szKryn_k_4GkRr_j3STHhNSS-i1Duauo does not equal provided hash imDBfEoPQdkucAP7SGAGAbZCYsb5U3l9VFDETTJ9eQQ", err.Error())
+	assert.Equal(t, "invalid token: sd hash validation failed: calculated hash nYcOXyP43v9szKryn_k_4GkRr_j3STHhNSS-i1Duauo does not equal provided hash imDBfEoPQdkucAP7SGAGAbZCYsb5U3l9VFDETTJ9eQQ", err.Error())
 }
 
 func TestSdJwt_AddKeyBindingJwt(t *testing.T) {
@@ -788,6 +788,65 @@ func TestSdJwt_AddKeyBindingJwt(t *testing.T) {
 	}
 }
 
+func TestSdJwt_AddKeyBindingJwt_SignatureVerifiable(t *testing.T) {
+	token := "eyJhbGciOiAiRVMyNTYifQ.eyJfc2QiOiBbIi1hU3puSWQ5bVdNOG9jdVFvbENsbHN4VmdncTEtdkhXNE90bmhVdFZtV3ciLCAiSUticllObjN2QTdXRUZyeXN2YmRCSmpERFVfRXZRSXIwVzE4dlRScFVTZyIsICJvdGt4dVQxNG5CaXd6TkozTVBhT2l0T2w5cFZuWE9hRUhhbF94a3lOZktJIl0sICJpc3MiOiAiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZS5jb20iLCAiaWF0IjogMTY4MzAwMDAwMCwgImV4cCI6IDE4ODMwMDAwMDAsICJ2ZXJpZmllZF9jbGFpbXMiOiB7InZlcmlmaWNhdGlvbiI6IHsiX3NkIjogWyI3aDRVRTlxU2N2REtvZFhWQ3VvS2ZLQkpwVkJmWE1GX1RtQUdWYVplM1NjIiwgInZUd2UzcmFISUZZZ0ZBM3hhVUQyYU14Rno1b0RvOGlCdTA1cUtsT2c5THciXSwgInRydXN0X2ZyYW1ld29yayI6ICJkZV9hbWwiLCAiZXZpZGVuY2UiOiBbeyIuLi4iOiAidFlKMFREdWN5WlpDUk1iUk9HNHFSTzV2a1BTRlJ4RmhVRUxjMThDU2wzayJ9XX0sICJjbGFpbXMiOiB7Il9zZCI6IFsiUmlPaUNuNl93NVpIYWFka1FNcmNRSmYwSnRlNVJ3dXJSczU0MjMxRFRsbyIsICJTXzQ5OGJicEt6QjZFYW5mdHNzMHhjN2NPYW9uZVJyM3BLcjdOZFJtc01vIiwgIldOQS1VTks3Rl96aHNBYjlzeVdPNklJUTF1SGxUbU9VOHI4Q3ZKMGNJTWsiLCAiV3hoX3NWM2lSSDliZ3JUQkppLWFZSE5DTHQtdmpoWDFzZC1pZ09mXzlsayIsICJfTy13SmlIM2VuU0I0Uk9IbnRUb1FUOEptTHR6LW1oTzJmMWM4OVhvZXJRIiwgImh2RFhod21HY0pRc0JDQTJPdGp1TEFjd0FNcERzYVUwbmtvdmNLT3FXTkUiXX19LCAiX3NkX2FsZyI6ICJzaGEtMjU2In0.kbfpTas9_-dLMgyeUxIXuBGLtCZUO2bG9JA7v73ebzpX1LA5MBtQsyZZut-Bm3_TW8sTqLCDPUN4ZC5pKCyQig~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgInRpbWUiLCAiMjAxMi0wNC0yM1QxODoyNVoiXQ~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgeyJfc2QiOiBbIjl3cGpWUFd1RDdQSzBuc1FETDhCMDZsbWRnVjNMVnliaEh5ZFFwVE55TEkiLCAiRzVFbmhPQU9vVTlYXzZRTU52ekZYanBFQV9SYy1BRXRtMWJHX3djYUtJayIsICJJaHdGcldVQjYzUmNacTl5dmdaMFhQYzdHb3doM08ya3FYZUJJc3dnMUI0IiwgIldweFE0SFNvRXRjVG1DQ0tPZURzbEJfZW11Y1lMejJvTzhvSE5yMWJFVlEiXX1d~WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgIm1ldGhvZCIsICJwaXBwIl0~WyJHMDJOU3JRZmpGWFE3SW8wOXN5YWpBIiwgImdpdmVuX25hbWUiLCAiTWF4Il0~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgImZhbWlseV9uYW1lIiwgIk1cdTAwZmNsbGVyIl0~WyJ5MXNWVTV3ZGZKYWhWZGd3UGdTN1JRIiwgImFkZHJlc3MiLCB7ImxvY2FsaXR5IjogIk1heHN0YWR0IiwgInBvc3RhbF9jb2RlIjogIjEyMzQ0IiwgImNvdW50cnkiOiAiREUiLCAic3RyZWV0X2FkZHJlc3MiOiAiV2VpZGVuc3RyYVx1MDBkZmUgMjIifV0~"
+	sdJwt, err := go_sd_jwt.New(token)
+	if err != nil {
+		t.Fatalf("no error should be thrown: %s", err.Error())
+	}
+
+	signer, err := jws.GetSigner(model.ES256, nil)
+	if err != nil {
+		t.Fatalf("failed to get signer: %s", err.Error())
+	}
+
+	err = sdJwt.AddKeyBindingJwt(signer, crypto.SHA256, signer.Alg().String(), "https://verifier.example.com", "test-nonce")
+	if err != nil {
+		t.Fatalf("failed to add kb-jwt: %s", err.Error())
+	}
+
+	kbParts := strings.Split(sdJwt.KbJwt.Token, ".")
+	if len(kbParts) != 3 {
+		t.Fatalf("kb-jwt should have 3 parts, got %d", len(kbParts))
+	}
+
+	validator, err := jws.GetValidator(signer.Alg(), signer.Public())
+	if err != nil {
+		t.Fatalf("failed to create validator: %s", err.Error())
+	}
+
+	kbSignInput := kbParts[0] + "." + kbParts[1]
+	kbSigBytes, err := base64.RawURLEncoding.DecodeString(kbParts[2])
+	if err != nil {
+		t.Fatalf("failed to decode kb-jwt signature: %s", err.Error())
+	}
+
+	valid, err := validator.ValidateSignature([]byte(kbSignInput), kbSigBytes)
+	if err != nil {
+		t.Fatalf("signature validation error: %s", err.Error())
+	}
+	if !valid {
+		t.Fatal("kb-jwt signature should be valid but verification failed")
+	}
+
+	wrongSigner, err := jws.GetSigner(model.ES256, nil)
+	if err != nil {
+		t.Fatalf("failed to get wrong signer: %s", err.Error())
+	}
+	wrongValidator, err := jws.GetValidator(wrongSigner.Alg(), wrongSigner.Public())
+	if err != nil {
+		t.Fatalf("failed to create wrong validator: %s", err.Error())
+	}
+
+	valid, err = wrongValidator.ValidateSignature([]byte(kbSignInput), kbSigBytes)
+	if err != nil {
+		t.Fatalf("signature validation error: %s", err.Error())
+	}
+	if valid {
+		t.Fatal("kb-jwt signature should be invalid when verified with wrong key")
+	}
+}
+
 func TestNew_AllDuplicateDigestScenarios(t *testing.T) {
 	duplicateDigestSdClaimJwt := "eyJhbGciOiAiRVMyNTYifQ.ew0KICAiX3NkIjogWw0KICAgICJDclFlN1M1a3FCQUh0LW5NWVhnYzZiZHQyU0g1YVRZMXNVX00tUGdralBJIiwNCiAgICAiSnpZakg0c3ZsaUgwUjNQeUVNZmVadTZKdDY5dTVxZWhabzdGN0VQWWxTRSIsDQogICAgIlBvckZicEt1VnU2eHltSmFndmtGc0ZYQWJSb2MySkdsQVVBMkJBNG83Y0kiLA0KICAgICJUR2Y0b0xiZ3dkNUpRYUh5S1ZRWlU5VWRHRTB3NXJ0RHNyWnpmVWFvbUxvIiwNCiAgICAiWFFfM2tQS3QxWHlYN0tBTmtxVlI2eVoyVmE1TnJQSXZQWWJ5TXZSS0JNTSIsDQogICAgIlh6RnJ6d3NjTTZHbjZDSkRjNnZWSzhCa01uZkc4dk9TS2ZwUElaZEFmZEUiLA0KICAgICJnYk9zSTRFZHEyeDJLdy13NXdQRXpha29iOWhWMWNSRDBBVE4zb1FMOUpNIiwNCiAgICAianN1OXlWdWx3UVFsaEZsTV8zSmx6TWFTRnpnbGhRRzBEcGZheVF3TFVLNCIsDQogICAgImpzdTl5VnVsd1FRbGhGbE1fM0psek1hU0Z6Z2xoUUcwRHBmYXlRd0xVSzQiDQogIF0sDQogICJpc3MiOiAiaHR0cHM6Ly9leGFtcGxlLmNvbS9pc3N1ZXIiLA0KICAiaWF0IjogMTY4MzAwMDAwMCwNCiAgImV4cCI6IDE4ODMwMDAwMDAsDQogICJzdWIiOiAidXNlcl80MiIsDQogICJuYXRpb25hbGl0aWVzIjogWw0KICAgIHsNCiAgICAgICIuLi4iOiAicEZuZGprWl9WQ3pteVRhNlVqbFpvM2RoLWtvOGFJS1FjOURsR3poYVZZbyINCiAgICB9LA0KICAgIHsNCiAgICAgICIuLi4iOiAiN0NmNkprUHVkcnkzbGNid0hnZVo4a2hBdjFVMU9TbGVyUDBWa0JKcldaMCINCiAgICB9DQogIF0sDQogICJfc2RfYWxnIjogInNoYS0yNTYiLA0KICAiY25mIjogew0KICAgICJqd2siOiB7DQogICAgICAia3R5IjogIkVDIiwNCiAgICAgICJjcnYiOiAiUC0yNTYiLA0KICAgICAgIngiOiAiVENBRVIxOVp2dTNPSEY0ajRXNHZmU1ZvSElQMUlMaWxEbHM3dkNlR2VtYyIsDQogICAgICAieSI6ICJaeGppV1diWk1RR0hWV0tWUTRoYlNJaXJzVmZ1ZWNDRTZ0NGpUOUYySFpRIg0KICAgIH0NCiAgfQ0KfQ.kmx687kUBiIDvKWgo2Dub-TpdCCRLZwtD7TOj4RoLsUbtFBI8sMrtH2BejXtm_P6fOAjKAVc_7LRNJFgm3PJhg~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgImdpdmVuX25hbWUiLCAiSm9obiJd~WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgImZhbWlseV9uYW1lIiwgIkRvZSJd~WyI2SWo3dE0tYTVpVlBHYm9TNXRtdlZBIiwgImVtYWlsIiwgImpvaG5kb2VAZXhhbXBsZS5jb20iXQ~WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgInBob25lX251bWJlciIsICIrMS0yMDItNTU1LTAxMDEiXQ~WyJRZ19PNjR6cUF4ZTQxMmExMDhpcm9BIiwgInBob25lX251bWJlcl92ZXJpZmllZCIsIHRydWVd~WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImFkZHJlc3MiLCB7InN0cmVldF9hZGRyZXNzIjogIjEyMyBNYWluIFN0IiwgImxvY2FsaXR5IjogIkFueXRvd24iLCAicmVnaW9uIjogIkFueXN0YXRlIiwgImNvdW50cnkiOiAiVVMifV0~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0~WyJHMDJOU3JRZmpGWFE3SW8wOXN5YWpBIiwgInVwZGF0ZWRfYXQiLCAxNTcwMDAwMDAwXQ~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgIlVTIl0~WyJuUHVvUW5rUkZxM0JJZUFtN0FuWEZBIiwgIkRFIl0~"
 	duplicateDigestArrayClaimJwt := "eyJhbGciOiAiRVMyNTYifQ.ew0KICAiX3NkIjogWw0KICAgICJDclFlN1M1a3FCQUh0LW5NWVhnYzZiZHQyU0g1YVRZMXNVX00tUGdralBJIiwNCiAgICAiSnpZakg0c3ZsaUgwUjNQeUVNZmVadTZKdDY5dTVxZWhabzdGN0VQWWxTRSIsDQogICAgIlBvckZicEt1VnU2eHltSmFndmtGc0ZYQWJSb2MySkdsQVVBMkJBNG83Y0kiLA0KICAgICJUR2Y0b0xiZ3dkNUpRYUh5S1ZRWlU5VWRHRTB3NXJ0RHNyWnpmVWFvbUxvIiwNCiAgICAiWFFfM2tQS3QxWHlYN0tBTmtxVlI2eVoyVmE1TnJQSXZQWWJ5TXZSS0JNTSIsDQogICAgIlh6RnJ6d3NjTTZHbjZDSkRjNnZWSzhCa01uZkc4dk9TS2ZwUElaZEFmZEUiLA0KICAgICJnYk9zSTRFZHEyeDJLdy13NXdQRXpha29iOWhWMWNSRDBBVE4zb1FMOUpNIiwNCiAgICAianN1OXlWdWx3UVFsaEZsTV8zSmx6TWFTRnpnbGhRRzBEcGZheVF3TFVLNCINCiAgXSwNCiAgImlzcyI6ICJodHRwczovL2V4YW1wbGUuY29tL2lzc3VlciIsDQogICJpYXQiOiAxNjgzMDAwMDAwLA0KICAiZXhwIjogMTg4MzAwMDAwMCwNCiAgInN1YiI6ICJ1c2VyXzQyIiwNCiAgIm5hdGlvbmFsaXRpZXMiOiBbDQogICAgew0KICAgICAgIi4uLiI6ICJwRm5kamtaX1ZDem15VGE2VWpsWm8zZGgta284YUlLUWM5RGxHemhhVllvIg0KICAgIH0sDQogICAgew0KICAgICAgIi4uLiI6ICI3Q2Y2SmtQdWRyeTNsY2J3SGdlWjhraEF2MVUxT1NsZXJQMFZrQkpyV1owIg0KICAgIH0sDQogICAgew0KICAgICAgIi4uLiI6ICI3Q2Y2SmtQdWRyeTNsY2J3SGdlWjhraEF2MVUxT1NsZXJQMFZrQkpyV1owIg0KICAgIH0NCiAgXSwNCiAgIl9zZF9hbGciOiAic2hhLTI1NiIsDQogICJjbmYiOiB7DQogICAgImp3ayI6IHsNCiAgICAgICJrdHkiOiAiRUMiLA0KICAgICAgImNydiI6ICJQLTI1NiIsDQogICAgICAieCI6ICJUQ0FFUjE5WnZ1M09IRjRqNFc0dmZTVm9ISVAxSUxpbERsczd2Q2VHZW1jIiwNCiAgICAgICJ5IjogIlp4amlXV2JaTVFHSFZXS1ZRNGhiU0lpcnNWZnVlY0NFNnQ0alQ5RjJIWlEiDQogICAgfQ0KICB9DQp9.kmx687kUBiIDvKWgo2Dub-TpdCCRLZwtD7TOj4RoLsUbtFBI8sMrtH2BejXtm_P6fOAjKAVc_7LRNJFgm3PJhg~WyIyR0xDNDJzS1F2ZUNmR2ZyeU5STjl3IiwgImdpdmVuX25hbWUiLCAiSm9obiJd~WyJlbHVWNU9nM2dTTklJOEVZbnN4QV9BIiwgImZhbWlseV9uYW1lIiwgIkRvZSJd~WyI2SWo3dE0tYTVpVlBHYm9TNXRtdlZBIiwgImVtYWlsIiwgImpvaG5kb2VAZXhhbXBsZS5jb20iXQ~WyJlSThaV205UW5LUHBOUGVOZW5IZGhRIiwgInBob25lX251bWJlciIsICIrMS0yMDItNTU1LTAxMDEiXQ~WyJRZ19PNjR6cUF4ZTQxMmExMDhpcm9BIiwgInBob25lX251bWJlcl92ZXJpZmllZCIsIHRydWVd~WyJBSngtMDk1VlBycFR0TjRRTU9xUk9BIiwgImFkZHJlc3MiLCB7InN0cmVldF9hZGRyZXNzIjogIjEyMyBNYWluIFN0IiwgImxvY2FsaXR5IjogIkFueXRvd24iLCAicmVnaW9uIjogIkFueXN0YXRlIiwgImNvdW50cnkiOiAiVVMifV0~WyJQYzMzSk0yTGNoY1VfbEhnZ3ZfdWZRIiwgImJpcnRoZGF0ZSIsICIxOTQwLTAxLTAxIl0~WyJHMDJOU3JRZmpGWFE3SW8wOXN5YWpBIiwgInVwZGF0ZWRfYXQiLCAxNTcwMDAwMDAwXQ~WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgIlVTIl0~WyJuUHVvUW5rUkZxM0JJZUFtN0FuWEZBIiwgIkRFIl0~"
@@ -805,7 +864,7 @@ func TestNew_AllDuplicateDigestScenarios(t *testing.T) {
 			t.Log("iteration: ", i)
 			t.Error("sdJwt should be nil: ", sdJwt)
 		}
-		if err.Error() != "failed to validate digests: duplicate digest found" {
+		if err.Error() != "invalid token: failed to validate digests: duplicate digest found" {
 			t.Log("iteration: ", i)
 			t.Error("error message is not correct: ", err.Error())
 		}
@@ -813,7 +872,7 @@ func TestNew_AllDuplicateDigestScenarios(t *testing.T) {
 }
 
 func TestSDJwtWithoutSD(t *testing.T) {
-	testJwt := "eyJ0eXAiOiJzZCtqd3QiLCJhbGciOiJFUzI1NiJ9.eyJmaXJzdG5hbWUiOiJKb2huIiwibGFzdG5hbWUiOiJEb2UiLCJzc24iOiIxMjMtNDUtNjc4OSIsImlkIjoiMTIzNCIsIl9zZF9hbGciOiJTSEEtMjU2In0.sUA_aYeA4YNQ1Paxna30VLAce1KdxvYMPEIduCwSD6X_Z56ZrBY5fbUBM5JVQ3vceS86CCghr8wkemdhQYRdfA~"
+	testJwt := "eyJ0eXAiOiJzZCtqd3QiLCJhbGciOiJFUzI1NiJ9.eyJmaXJzdG5hbWUiOiJKb2huIiwibGFzdG5hbWUiOiJEb2UiLCJzc24iOiIxMjMtNDUtNjc4OSIsImlkIjoiMTIzNCIsIl9zZF9hbGciOiJzaGEtMjU2In0.sUA_aYeA4YNQ1Paxna30VLAce1KdxvYMPEIduCwSD6X_Z56ZrBY5fbUBM5JVQ3vceS86CCghr8wkemdhQYRdfA~"
 	sdJwt, err := go_sd_jwt.New(testJwt)
 
 	if err != nil {
@@ -825,5 +884,47 @@ func TestSDJwtWithoutSD(t *testing.T) {
 	if err != nil {
 		t.Log("Token cant survive without Selective Disclosures")
 		t.Fatalf("The token has empty selective disclosure but fails in parsing: %s", err.Error())
+	}
+}
+
+func TestGetHash_CaseSensitive(t *testing.T) {
+	t.Run("lowercase sha-256 accepted", func(t *testing.T) {
+		_, err := go_sd_jwt.GetHash("sha-256")
+		if err != nil {
+			t.Fatalf("should accept lowercase sha-256: %s", err.Error())
+		}
+	})
+
+	t.Run("uppercase SHA-256 rejected", func(t *testing.T) {
+		_, err := go_sd_jwt.GetHash("SHA-256")
+		if err == nil {
+			t.Fatal("should reject uppercase SHA-256")
+		}
+		assert.Equal(t, "unsupported _sd_alg: SHA-256", err.Error())
+	})
+
+	t.Run("mixed case Sha-256 rejected", func(t *testing.T) {
+		_, err := go_sd_jwt.GetHash("Sha-256")
+		if err == nil {
+			t.Fatal("should reject mixed case Sha-256")
+		}
+		assert.Equal(t, "unsupported _sd_alg: Sha-256", err.Error())
+	})
+}
+
+func TestSDJwtWithNullValues(t *testing.T) {
+	token := "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ0ZXN0IiwibnVsbGZpZWxkIjpudWxsLCJfc2RfYWxnIjoic2hhLTI1NiJ9.fakesig~"
+	sdJwt, err := go_sd_jwt.New(token)
+	if err != nil {
+		t.Fatalf("should parse token with null values: %s", err.Error())
+	}
+
+	claims, err := sdJwt.GetDisclosedClaims()
+	if err != nil {
+		t.Fatalf("should handle null values in GetDisclosedClaims: %s", err.Error())
+	}
+
+	if claims["nullfield"] != nil {
+		t.Error("null field should remain nil")
 	}
 }
