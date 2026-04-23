@@ -827,3 +827,43 @@ func TestSDJwtWithoutSD(t *testing.T) {
 		t.Fatalf("The token has empty selective disclosure but fails in parsing: %s", err.Error())
 	}
 }
+
+func TestGetHash_CaseSensitive(t *testing.T) {
+	t.Run("lowercase sha-256 accepted", func(t *testing.T) {
+		_, err := go_sd_jwt.GetHash("sha-256")
+		if err != nil {
+			t.Fatalf("should accept lowercase sha-256: %s", err.Error())
+		}
+	})
+
+	t.Run("uppercase SHA-256 rejected", func(t *testing.T) {
+		_, err := go_sd_jwt.GetHash("SHA-256")
+		if err == nil {
+			t.Fatal("should reject uppercase SHA-256")
+		}
+	})
+
+	t.Run("mixed case Sha-256 rejected", func(t *testing.T) {
+		_, err := go_sd_jwt.GetHash("Sha-256")
+		if err == nil {
+			t.Fatal("should reject mixed case Sha-256")
+		}
+	})
+}
+
+func TestSDJwtWithNullValues(t *testing.T) {
+	token := "eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ0ZXN0IiwibnVsbGZpZWxkIjpudWxsLCJfc2RfYWxnIjoic2hhLTI1NiJ9.fakesig~"
+	sdJwt, err := go_sd_jwt.New(token)
+	if err != nil {
+		t.Fatalf("should parse token with null values: %s", err.Error())
+	}
+
+	claims, err := sdJwt.GetDisclosedClaims()
+	if err != nil {
+		t.Fatalf("should handle null values in GetDisclosedClaims: %s", err.Error())
+	}
+
+	if claims["nullfield"] != nil {
+		t.Error("null field should remain nil")
+	}
+}
