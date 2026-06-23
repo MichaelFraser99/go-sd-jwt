@@ -12,7 +12,7 @@ import (
 	"github.com/MichaelFraser99/go-jose/jwk"
 	"github.com/MichaelFraser99/go-jose/jws"
 	"github.com/MichaelFraser99/go-jose/model"
-	"github.com/MichaelFraser99/go-sd-jwt/internal/utils"
+	"github.com/MichaelFraser99/go-sd-jwt/v2/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

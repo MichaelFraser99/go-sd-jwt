@@ -11,8 +11,8 @@ import (
 
 	"github.com/MichaelFraser99/go-jose/jws"
 	"github.com/MichaelFraser99/go-jose/model"
-	go_sd_jwt "github.com/MichaelFraser99/go-sd-jwt"
-	"github.com/MichaelFraser99/go-sd-jwt/disclosure"
+	go_sd_jwt "github.com/MichaelFraser99/go-sd-jwt/v2"
+	"github.com/MichaelFraser99/go-sd-jwt/v2/disclosure"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"

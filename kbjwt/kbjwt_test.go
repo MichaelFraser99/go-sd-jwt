@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/MichaelFraser99/go-jose/jws"
 	"github.com/MichaelFraser99/go-jose/model"
-	e "github.com/MichaelFraser99/go-sd-jwt/internal/error"
+	e "github.com/MichaelFraser99/go-sd-jwt/v2/internal/error"
 	"testing"
 )
 
