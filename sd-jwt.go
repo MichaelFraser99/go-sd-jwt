@@ -17,10 +17,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MichaelFraser99/go-sd-jwt/disclosure"
-	e "github.com/MichaelFraser99/go-sd-jwt/internal/error"
-	"github.com/MichaelFraser99/go-sd-jwt/internal/utils"
-	"github.com/MichaelFraser99/go-sd-jwt/kbjwt"
+	"github.com/MichaelFraser99/go-sd-jwt/v2/disclosure"
+	e "github.com/MichaelFraser99/go-sd-jwt/v2/internal/error"
+	"github.com/MichaelFraser99/go-sd-jwt/v2/internal/utils"
+	"github.com/MichaelFraser99/go-sd-jwt/v2/kbjwt"
 )
 
 // SdJwt this object represents a valid SD-JWT. Created using the FromToken function which performs the required validation.
