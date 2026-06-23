@@ -1,4 +1,4 @@
-module github.com/MichaelFraser99/go-sd-jwt
+module github.com/MichaelFraser99/go-sd-jwt/v2
 
 go 1.24.13
 

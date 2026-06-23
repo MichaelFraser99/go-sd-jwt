@@ -12,7 +12,7 @@ Also see: [sdjwt.org](https://sdjwt.org/) for a playground powered by this modul
 
 ## Installation
 ```bash
-go get github.com/MichaelFraser99/go-sd-jwt
+go get github.com/MichaelFraser99/go-sd-jwt/v2
 ```
 
 ## Functions

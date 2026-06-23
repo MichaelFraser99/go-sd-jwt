@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	e "github.com/MichaelFraser99/go-sd-jwt/internal/error"
-	s "github.com/MichaelFraser99/go-sd-jwt/internal/salt"
+	e "github.com/MichaelFraser99/go-sd-jwt/v2/internal/error"
+	s "github.com/MichaelFraser99/go-sd-jwt/v2/internal/salt"
 	"hash"
 )
 
