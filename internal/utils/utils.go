@@ -102,7 +102,11 @@ func GetDigests(m map[string]any) ([]any, error) {
 			continue
 		}
 		if reflect.TypeOf(v).Kind() == reflect.Map {
-			digests = append(digests, GetDigests(v.(map[string]any))...)
+			d, err := GetDigests(v.(map[string]any))
+			if err != nil {
+				return nil, err
+			}
+			digests = append(digests, d...)
 		} else if k == "_sd" {
 			if _, ok := v.([]any); !ok {
 				return nil, errors.New("malformed _sd claim")
