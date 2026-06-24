@@ -57,14 +57,18 @@ func ValidateArrayClaims(s *[]any, currentDisclosure *disclosure.Disclosure, bas
 
 func ValidateSDClaims(values *map[string]any, currentDisclosure *disclosure.Disclosure, base64HashedDisclosure string) (found bool, err error) {
 	if _, ok := (*values)["_sd"]; ok {
-		for _, digest := range (*values)["_sd"].([]any) {
-			sDigest := digest.(string)
-			if sDigest == base64HashedDisclosure {
-				if currentDisclosure.Key != nil {
-					(*values)[*currentDisclosure.Key] = currentDisclosure.Value
-					return true, nil
-				} else {
-					return false, errors.New("invalid disclosure format for _sd claim")
+		if sdClaim, ok := (*values)["_sd"].([]any); !ok {
+			return false, errors.New("malformed _sd claim")
+		} else {
+			for _, digest := range sdClaim {
+				sDigest := digest.(string)
+				if sDigest == base64HashedDisclosure {
+					if currentDisclosure.Key != nil {
+						(*values)[*currentDisclosure.Key] = currentDisclosure.Value
+						return true, nil
+					} else {
+						return false, errors.New("invalid disclosure format for _sd claim")
+					}
 				}
 			}
 		}
