@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/MichaelFraser99/go-sd-jwt/v2/disclosure"
 	"github.com/MichaelFraser99/go-sd-jwt/v2/internal/model"
 	"reflect"
@@ -57,14 +58,18 @@ func ValidateArrayClaims(s *[]any, currentDisclosure *disclosure.Disclosure, bas
 
 func ValidateSDClaims(values *map[string]any, currentDisclosure *disclosure.Disclosure, base64HashedDisclosure string) (found bool, err error) {
 	if _, ok := (*values)["_sd"]; ok {
-		for _, digest := range (*values)["_sd"].([]any) {
-			sDigest := digest.(string)
-			if sDigest == base64HashedDisclosure {
-				if currentDisclosure.Key != nil {
-					(*values)[*currentDisclosure.Key] = currentDisclosure.Value
-					return true, nil
-				} else {
-					return false, errors.New("invalid disclosure format for _sd claim")
+		if sdClaim, ok := (*values)["_sd"].([]any); !ok {
+			return false, errors.New("malformed _sd claim")
+		} else {
+			for _, digest := range sdClaim {
+				sDigest := digest.(string)
+				if sDigest == base64HashedDisclosure {
+					if currentDisclosure.Key != nil {
+						(*values)[*currentDisclosure.Key] = currentDisclosure.Value
+						return true, nil
+					} else {
+						return false, errors.New("invalid disclosure format for _sd claim")
+					}
 				}
 			}
 		}
@@ -91,15 +96,22 @@ func ValidateSDClaims(values *map[string]any, currentDisclosure *disclosure.Disc
 	return false, nil
 }
 
-func GetDigests(m map[string]any) []any {
+func GetDigests(m map[string]any) ([]any, error) {
 	var digests []any
 	for k, v := range m {
 		if v == nil {
 			continue
 		}
 		if reflect.TypeOf(v).Kind() == reflect.Map {
-			digests = append(digests, GetDigests(v.(map[string]any))...)
+			d, err := GetDigests(v.(map[string]any))
+			if err != nil {
+				return nil, err
+			}
+			digests = append(digests, d...)
 		} else if k == "_sd" {
+			if _, ok := v.([]any); !ok {
+				return nil, errors.New("malformed _sd claim")
+			}
 			digests = append(digests, v.([]any)...)
 		} else if reflect.TypeOf(v).Kind() == reflect.Slice {
 			for _, v2 := range v.([]any) {
@@ -114,7 +126,7 @@ func GetDigests(m map[string]any) []any {
 			}
 		}
 	}
-	return digests
+	return digests, nil
 }
 
 func StripSDClaimsFromSlice(input []any) []any {
@@ -201,7 +213,10 @@ func StringifyDisclosures(disclosures []disclosure.Disclosure) string {
 }
 
 func ValidateDigests(body map[string]any) error {
-	digests := GetDigests(body)
+	digests, err := GetDigests(body)
+	if err != nil {
+		return fmt.Errorf("failed to parse provided digests: %s", err.Error())
+	}
 
 	for _, d := range digests {
 		count := 0
