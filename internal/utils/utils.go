@@ -95,7 +95,7 @@ func ValidateSDClaims(values *map[string]any, currentDisclosure *disclosure.Disc
 	return false, nil
 }
 
-func GetDigests(m map[string]any) []any {
+func GetDigests(m map[string]any) ([]any, error) {
 	var digests []any
 	for k, v := range m {
 		if v == nil {
@@ -104,6 +104,9 @@ func GetDigests(m map[string]any) []any {
 		if reflect.TypeOf(v).Kind() == reflect.Map {
 			digests = append(digests, GetDigests(v.(map[string]any))...)
 		} else if k == "_sd" {
+			if _, ok := v.([]any); !ok {
+				return nil, errors.New("malformed _sd claim")
+			}
 			digests = append(digests, v.([]any)...)
 		} else if reflect.TypeOf(v).Kind() == reflect.Slice {
 			for _, v2 := range v.([]any) {
@@ -118,7 +121,7 @@ func GetDigests(m map[string]any) []any {
 			}
 		}
 	}
-	return digests
+	return digests, nil
 }
 
 func StripSDClaimsFromSlice(input []any) []any {
@@ -205,7 +208,10 @@ func StringifyDisclosures(disclosures []disclosure.Disclosure) string {
 }
 
 func ValidateDigests(body map[string]any) error {
-	digests := GetDigests(body)
+	digests, err := GetDigests(body)
+	if err != nil {
+		return fmt.Errorf("failed to parse provided digests: %s", err.Error())
+	}
 
 	for _, d := range digests {
 		count := 0
