@@ -112,7 +112,14 @@ name for a non-array digest)
 func (s *SdJwt) AddKeyBindingJwt(signer crypto.Signer, h crypto.Hash, alg, aud, nonce string) error
 ```
 AddKeyBindingJwt signs and adds a key binding jwt to the sd-jwt object
-complete with sd_hash claim for the currently specifed disclosures
+complete with sd_hash claim for the currently specifed disclosures. This assumes 
+that the iat of the key binding is the current time.
+
+
+```go
+func (s *SdJwt) AddKeyBindingJwtWithIat(signer crypto.Signer, h crypto.Hash, alg, aud, nonce string, iat time.Time) error
+```
+AddKeyBindingJwtWithIat allows for a custom iat to be specified for the key binding jwt. This is useful for scenarios where the key binding jwt needs to be deterministic for testing/porting scenarios.
 
 ```go
 func (s *SdJwt) Token() (*string, error)

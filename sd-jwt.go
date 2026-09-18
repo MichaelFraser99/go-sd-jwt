@@ -93,6 +93,11 @@ func (s *SdJwt) Token() (*string, error) {
 // If the provided hash does not match the hash algorithm specified in the SD Jwt (or isn't sha256 if no _sd_alg claim present), an error will be thrown
 // The sd_hash value will be set based off of all disclosures present in the current sd jwt object
 func (s *SdJwt) AddKeyBindingJwt(signer crypto.Signer, h crypto.Hash, alg, aud, nonce string) error {
+	return s.AddKeyBindingJwtWithIat(signer, h, alg, aud, nonce, time.Now())
+}
+
+// AddKeyBindingJwtWithIat This variant of AddKeyBindingJwt can be called when an iat is required that is not the current time
+func (s *SdJwt) AddKeyBindingJwtWithIat(signer crypto.Signer, h crypto.Hash, alg, aud, nonce string, iat time.Time) error {
 	if s.KbJwt != nil {
 		return errors.New("key binding jwt already exists")
 	}
@@ -140,7 +145,7 @@ func (s *SdJwt) AddKeyBindingJwt(signer crypto.Signer, h crypto.Hash, alg, aud, 
 	base64.RawURLEncoding.Encode(b64SdHash, hashedToken)
 
 	kbJwt := kbjwt.KbJwt{
-		Iat:    utils.Pointer(time.Now().Unix()),
+		Iat:    utils.Pointer(iat.Unix()),
 		Aud:    utils.Pointer(aud),
 		Nonce:  utils.Pointer(nonce),
 		SdHash: utils.Pointer(string(b64SdHash)),
