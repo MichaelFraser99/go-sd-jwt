@@ -1,5 +1,5 @@
-github.com/MichaelFraser99/go-jose v0.9.0 h1:7vUcuJs5vGP0F+AQDStv6puqMYMmx75B4/Qc2CeKQR8=
-github.com/MichaelFraser99/go-jose v0.9.0/go.mod h1:kdRvg7/FPcDnsEz8PyCg5hhcBlLud9F0jB4Xy/u771c=
+github.com/MichaelFraser99/go-jose v0.11.0 h1:1VAyRnJ4VcLl0Bpr6nDEfxH4n+wuyzi9RUTeTAV+tuI=
+github.com/MichaelFraser99/go-jose v0.11.0/go.mod h1:R0k4V9RB2FmjL5sFeL9O43gQ8RYuzkiyC1Lu3s63eU8=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
